@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Framed — Your Story, Delivered Daily</title>
+  <meta name="description" content="A new HD wallpaper delivered to your Telegram every morning. Free, forever." />
+  <meta name="analytics-provider" content="Plausible" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script defer data-domain="heyframed.com" src="https://plausible.io/js/script.js"></script>
+  <style>
+    /* ── Design Tokens ──────────────────────────────────── */
+    :root {
+      --bg:            #0d1117;
+      --surface:       #161b22;
+      --surface-raised:#1c2230;
+      --accent:        #F0B429;
+      --accent-dim:    #c99320;
+      --accent-subtle: rgba(240,180,41,0.10);
+      --accent-glow:   rgba(240,180,41,0.25);
+      --text:          #e6edf3;
+      --text-secondary:#8b949e;
+      --text-muted:    #3d444d;
+      --border:        rgba(255,255,255,0.10);
+      --border-accent: rgba(240,180,41,0.35);
+      --radius-sm:     6px;
+      --radius:        10px;
+      --radius-lg:     16px;
+      --font:          'Inter', sans-serif;
+      --transition:    0.2s ease;
+    }
+
+    /* ── Reset ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    img { display: block; max-width: 100%; }
+    a { text-decoration: none; color: inherit; }
+
+    /* ── Utility ────────────────────────────────────────── */
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+    .section { padding: 96px 0; }
+    .section-label {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .section-sub {
+      font-size: 17px;
+      color: var(--text-secondary);
+      max-width: 520px;
+    }
+
+    /* ── Buttons ────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 28px;
+      height: 52px;
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #0a0a0a;
+    }
+    .btn-primary:hover { background: #ffc940; transform: translateY(-1px); box-shadow: 0 8px 24px var(--accent-glow); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1.5px solid var(--border-accent);
+    }
+    .btn-ghost:hover { background: var(--accent-subtle); transform: translateY(-1px); }
+    .btn-sm { height: 40px; padding: 0 20px; font-size: 13px; }
+    .btn-lg { height: 58px; padding: 0 36px; font-size: 16px; border-radius: 12px; }
+
+    /* ── Nav ────────────────────────────────────────────── */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.3s ease, border-bottom 0.3s ease, backdrop-filter 0.3s ease;
+    }
+    .nav.scrolled {
+      background: rgba(13,17,23,0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .nav-logo span { color: var(--accent); }
+    .nav-cta { }
+    .cta-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+    .cta-note {
+      font-size: 12px;
+      color: rgba(255,255,255,0.68);
+      max-width: 380px;
+    }
+
+    /* ── Hero ───────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background-image: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=85&fit=crop');
+      background-size: cover;
+      background-position: center;
+      transform: scale(1.04);
+      transition: transform 8s ease;
+    }
+    .hero-bg.loaded { transform: scale(1); }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(13,17,23,0.50) 0%,
+        rgba(13,17,23,0.28) 40%,
+        rgba(13,17,23,0.80) 100%
+      );
+    }
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      padding: 0 24px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(13,17,23,0.55);
+      border: 1px solid var(--border-accent);
+      backdrop-filter: blur(8px);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 28px;
+    }
+    .hero-badge::before { content: '✦'; }
+    .hero-h1 {
+      font-size: clamp(44px, 7vw, 80px);
+      font-weight: 300;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+    .hero-h1 strong { font-weight: 800; color: var(--accent); display: block; }
+    .hero-sub {
+      font-size: clamp(15px, 2vw, 18px);
+      color: rgba(255,255,255,0.75);
+      max-width: 480px;
+      margin: 0 auto 36px;
+      line-height: 1.65;
+    }
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .hero-scroll {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.4);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      animation: bounce 2s infinite;
+    }
+    .hero-scroll svg { opacity: 0.5; }
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(6px); }
+    }
+
+    /* ── Trust Bar ──────────────────────────────────────── */
+    .trust-bar {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 16px 0;
+    }
+    .trust-items {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .trust-item {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.06em;
+      padding: 6px 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .trust-item + .trust-item {
+      border-left: 1px solid var(--border);
+    }
+    .trust-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+    /* ── How It Works ───────────────────────────────────── */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-top: 56px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .step {
+      background: var(--surface);
+      padding: 40px 36px;
+      position: relative;
+    }
+    .step:not(:last-child) { border-right: 1px solid var(--border); }
+    .step-num {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .step-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--accent-subtle);
+      border: 1px solid var(--border-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 22px;
+    }
+    .step h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+    .step p { font-size: 14px; color: var(--text-secondary); line-height: 1.65; }
+
+    /* ── Gallery ────────────────────────────────────────── */
+    .gallery { background: var(--surface); }
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 48px;
+    }
+    .gallery-card {
+      position: relative;
+      border-radius: var(--radius);
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .gallery-card:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 0 1.5px var(--accent), 0 12px 32px rgba(0,0,0,0.5);
+      border-color: var(--accent);
+      z-index: 2;
+    }
+    .gallery-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: filter 0.25s ease;
+    }
+    .gallery-card:hover img { filter: brightness(1.05); }
+    .gallery-caption {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 24px 14px 12px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.75));
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.85);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .gallery-tag {
+      background: var(--accent-subtle);
+      border: 1px solid var(--border-accent);
+      color: var(--accent);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ── Categories ─────────────────────────────────────── */
+    .marquee-wrapper {
+      overflow: hidden;
+      margin-top: 48px;
+      padding: 4px 0;
+    }
+    .marquee-track {
+      display: flex;
+      gap: 12px;
+      animation: marquee 28s linear infinite;
+      width: max-content;
+    }
+    .marquee-track:hover { animation-play-state: paused; }
+    .cat-pill {
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 10px 22px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      transition: all var(--transition);
+    }
+    .cat-pill.active {
+      background: var(--accent-subtle);
+      border-color: var(--border-accent);
+      color: var(--accent);
+    }
+    .cat-pill:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .categories-note {
+      text-align: center;
+      margin-top: 28px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* ── Pricing ────────────────────────────────────────── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1000px;
+      margin: 56px auto 0;
+    }
+    .price-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px 32px;
+      position: relative;
+      transition: border-color var(--transition);
+    }
+    .price-card.featured {
+      border-color: var(--border-accent);
+      background: linear-gradient(160deg, rgba(240,180,41,0.06) 0%, var(--surface) 60%);
+    }
+    .price-badge {
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #0a0a0a;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 999px;
+    }
+    .price-tier {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .price-amount {
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+      line-height: 1;
+    }
+    .price-amount sup { font-size: 20px; vertical-align: super; font-weight: 600; }
+    .price-amount span { font-size: 14px; font-weight: 400; color: var(--text-secondary); margin-left: 2px; }
+    .price-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+      min-height: 36px;
+    }
+    .price-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .price-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    .price-features li .check {
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .price-features li .soon {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-left: 4px;
+    }
+    .price-cta { width: 100%; }
+
+    /* ── Final CTA ──────────────────────────────────────── */
+    .final-cta {
+      text-align: center;
+      background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+      border-top: 1px solid var(--border);
+    }
+    .final-cta .section-title { margin-bottom: 12px; }
+    .final-cta .section-sub { margin: 0 auto 36px; }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .footer-logo { font-size: 15px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .footer-logo span { color: var(--accent); }
+    .footer-copy { font-size: 12px; color: var(--text-muted); }
+
+    /* ── Reveal animations ──────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    .bundle-callout {
+      max-width: 1000px;
+      margin: 20px auto 0;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .bundle-left { display: flex; align-items: center; gap: 16px; }
+    .bundle-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      background: var(--accent-subtle);
+      border: 1px solid var(--border-accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .bundle-text strong { display: block; font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+    .bundle-text span { font-size: 13px; color: var(--text-secondary); }
+    .bundle-price {
+      font-size: 22px; font-weight: 800;
+      color: var(--accent); letter-spacing: -0.02em;
+    }
+    .bundle-price small { font-size: 12px; font-weight: 400; color: var(--text-secondary); margin-left: 4px; }
+
+    /* ── Checkout Modal ─────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 36px;
+      max-width: 460px;
+      width: 100%;
+      position: relative;
+      transform: translateY(14px);
+      transition: transform 0.25s ease;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-close {
+      position: absolute;
+      top: 14px; right: 16px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      transition: color var(--transition);
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-tier-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-subtle);
+      border: 1px solid var(--border-accent);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+    }
+    .modal-title { font-size: 21px; font-weight: 700; margin-bottom: 8px; }
+    .modal-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 28px; line-height: 1.6; }
+    .modal-step { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 22px; }
+    .modal-step-num {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: var(--accent-subtle);
+      border: 1px solid var(--border-accent);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .modal-step-label { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+    .modal-step-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+    .modal-link { color: var(--accent); text-decoration: underline; }
+    .modal-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 11px 16px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      margin-top: 10px;
+      transition: border-color var(--transition);
+      outline: none;
+    }
+    .modal-input:focus { border-color: var(--accent); }
+    .modal-input::placeholder { color: var(--text-muted); }
+    .modal-error { font-size: 12px; color: #ff6b6b; margin-top: 6px; }
+    .modal-cta { width: 100%; justify-content: center; margin-top: 24px; }
+    .modal-secure {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 12px;
+    }
+
+    .analytics-availability {
+      margin-top: 18px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 960px) {
+      .pricing-grid { grid-template-columns: 1fr; max-width: 440px; }
+      .bundle-callout { flex-direction: column; align-items: flex-start; }
+    }
+    @media (max-width: 900px) {
+      .steps-grid { grid-template-columns: 1fr; }
+      .step:not(:last-child) { border-right: none; border-bottom: 1px solid var(--border); }
+      .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .section { padding: 64px 0; }
+      .gallery-grid { grid-template-columns: 1fr; }
+      .hero-actions { flex-direction: column; align-items: stretch; }
+      .hero-actions .btn { justify-content: center; }
+      .trust-item + .trust-item { border-left: none; border-top: 1px solid var(--border); }
+      .trust-items { flex-direction: column; }
+      footer { flex-direction: column; align-items: center; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── NAV ──────────────────────────────────────────── -->
+  <nav class="nav" id="nav">
+      <a href="#hero" class="nav-logo">FRAME<span>D</span></a>
+      <a href="#pricing" class="btn btn-ghost btn-sm nav-cta" data-analytics="cta-click" data-analytics-label="nav-join">See plans →</a>
+  </nav>
+
+  <!-- ── HERO ─────────────────────────────────────────── -->
+  <section class="hero" id="hero">
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-badge">Free &nbsp;·&nbsp; Daily &nbsp;·&nbsp; 1080p HD</div>
+      <h1 class="hero-h1">
+        Your story,
+        <strong>framed.</strong>
+      </h1>
+      <p class="hero-sub">
+        A new HD wallpaper delivered to your Telegram every morning. Free on Telegram, with optional paid upgrades for higher-resolution and multi-device control.
+      </p>
+      <div class="hero-actions">
+        <a href="#pricing" class="btn btn-primary btn-lg" data-analytics="cta-click" data-analytics-label="hero-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+          See plans
+        </a>
+        <a href="#gallery" class="btn btn-ghost" data-analytics="cta-click" data-analytics-label="hero-secondary">See recent drops ↓</a>
+      </div>
+      <div class="cta-stack" style="margin-top:18px;">
+        <div class="cta-note">No account required for the free channel. Paid plans are only for users who want higher-resolution delivery and device-specific control.</div>
+      </div>
+    </div>
+    <div class="hero-scroll">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+      Scroll
+    </div>
+  </section>
+
+  <!-- ── TRUST BAR ─────────────────────────────────────── -->
+  <div class="trust-bar">
+    <div class="trust-items">
+      <div class="trust-item"><div class="trust-dot"></div>200+ wallpapers delivered</div>
+      <div class="trust-item"><div class="trust-dot"></div>Free forever</div>
+      <div class="trust-item"><div class="trust-dot"></div>1920 × 1080 HD</div>
+        <div class="trust-item"><div class="trust-dot"></div>No account required for free</div>
+    </div>
+  </div>
+
+  <!-- ── HOW IT WORKS ──────────────────────────────────── -->
+  <section class="section" id="how">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">How it works</div>
+        <h2 class="section-title">Three steps. That's it.</h2>
+        <p class="section-sub">No app. No account. Just open Telegram and tap join for the free channel.</p>
+      </div>
+      <div class="steps-grid">
+        <div class="step reveal reveal-delay-1">
+          <div class="step-num">Step 01</div>
+          <div class="step-icon">📲</div>
+          <h3>Subscribe</h3>
+          <p>Tap the Telegram button. Join the free channel in one click and start receiving wallpapers automatically.</p>
+        </div>
+        <div class="step reveal reveal-delay-2">
+          <div class="step-num">Step 02</div>
+          <div class="step-icon">🌅</div>
+          <h3>Wake up</h3>
+          <p>Every morning, a new cinematic wallpaper drops in your chat — chosen for its story and impact.</p>
+        </div>
+        <div class="step reveal reveal-delay-3">
+          <div class="step-num">Step 03</div>
+          <div class="step-icon">✨</div>
+          <h3>Set it</h3>
+          <p>Save the image and set it as your wallpaper. Your screen tells a new story every single day.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── GALLERY ───────────────────────────────────────── -->
+  <section class="section gallery" id="gallery">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">Recent drops</div>
+        <h2 class="section-title">Every frame tells a story.</h2>
+        <p class="section-sub">Hand-picked moments with a lighter, faster-loading preview set.</p>
+      </div>
+      <div class="gallery-grid">
+        <div class="gallery-card reveal reveal-delay-1">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'%3E%3Crect width='800' height='450' fill='%23161b22'/%3E%3Cpath d='M0 315 L180 215 L330 285 L470 175 L620 240 L800 140 L800 450 L0 450 Z' fill='%23222a39'/%3E%3Ccircle cx='635' cy='120' r='42' fill='%23F0B429' fill-opacity='.18'/%3E%3C/svg%3E" alt="Abstract cinematic wallpaper preview" loading="lazy" />
+          <div class="gallery-caption"><span class="gallery-tag">Anime</span> Attack on Titan · Ep. 87</div>
+        </div>
+        <div class="gallery-card reveal reveal-delay-2">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'%3E%3Crect width='800' height='450' fill='%23161b22'/%3E%3Ccircle cx='560' cy='150' r='110' fill='%23F0B429' fill-opacity='.14'/%3E%3Cpath d='M0 355 C130 300, 230 330, 360 275 S610 245, 800 185 L800 450 L0 450 Z' fill='%23222a39'/%3E%3C/svg%3E" alt="Space wallpaper preview" loading="lazy" />
+          <div class="gallery-caption"><span class="gallery-tag">Space</span> Nebula Series · No. 12</div>
+        </div>
+        <div class="gallery-card reveal reveal-delay-3">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'%3E%3Crect width='800' height='450' fill='%23161b22'/%3E%3Cpath d='M0 340 C160 310, 240 255, 360 260 S580 320, 800 220 L800 450 L0 450 Z' fill='%23222a39'/%3E%3Ccircle cx='180' cy='120' r='58' fill='%23F0B429' fill-opacity='.16'/%3E%3C/svg%3E" alt="Anime wallpaper preview" loading="lazy" />
+          <div class="gallery-caption"><span class="gallery-tag">Anime</span> Frieren · Ep. 28</div>
+        </div>
+        <div class="gallery-card reveal reveal-delay-1">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'%3E%3Crect width='800' height='450' fill='%23161b22'/%3E%3Cpath d='M0 360 L180 250 L300 290 L430 220 L580 275 L800 190 L800 450 L0 450 Z' fill='%23222a39'/%3E%3Ccircle cx='700' cy='88' r='34' fill='%23F0B429' fill-opacity='.16'/%3E%3C/svg%3E" alt="Cosmic wallpaper preview" loading="lazy" />
+          <div class="gallery-caption"><span class="gallery-tag">Space</span> Cosmos Series · No. 4</div>
+        </div>
+        <div class="gallery-card reveal reveal-delay-2">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'%3E%3Crect width='800' height='450' fill='%23161b22'/%3E%3Cpath d='M0 320 C110 300, 180 350, 300 300 S510 215, 660 255 S760 260, 800 210 L800 450 L0 450 Z' fill='%23222a39'/%3E%3Ccircle cx='120' cy='120' r='48' fill='%23F0B429' fill-opacity='.14'/%3E%3C/svg%3E" alt="Action wallpaper preview" loading="lazy" />
+          <div class="gallery-caption"><span class="gallery-tag">Anime</span> Demon Slayer · Ep. 19</div>
+        </div>
+        <div class="gallery-card reveal reveal-delay-3">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'%3E%3Crect width='800' height='450' fill='%23161b22'/%3E%3Cpath d='M0 300 L120 280 L240 230 L360 260 L470 210 L610 245 L800 175 L800 450 L0 450 Z' fill='%23222a39'/%3E%3Ccircle cx='640' cy='140' r='62' fill='%23F0B429' fill-opacity='.16'/%3E%3C/svg%3E" alt="Landscape wallpaper preview" loading="lazy" />
+          <div class="gallery-caption"><span class="gallery-tag">Landscape</span> Epic Vistas · No. 7</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CATEGORIES ────────────────────────────────────── -->
+  <section class="section" id="categories">
+    <div class="container">
+      <div class="reveal" style="text-align:center;">
+        <div class="section-label">Categories</div>
+        <h2 class="section-title">Built for every screen.<br>Every taste.</h2>
+        <p class="section-sub" style="margin:0 auto;">One service. Every mood. New categories unlock as the collection grows.</p>
+      </div>
+    </div>
+    <div class="marquee-wrapper" style="margin-top:48px;">
+      <div class="marquee-track" id="marquee">
+        <div class="cat-pill active">✦ Anime</div>
+        <div class="cat-pill">Space</div>
+        <div class="cat-pill">Cars</div>
+        <div class="cat-pill">Nature</div>
+        <div class="cat-pill">Architecture</div>
+        <div class="cat-pill">Sci-Fi</div>
+        <div class="cat-pill">Landscapes</div>
+        <div class="cat-pill">Cyberpunk</div>
+        <div class="cat-pill">Fantasy Art</div>
+        <div class="cat-pill">Dark Academia</div>
+        <!-- duplicate for seamless loop -->
+        <div class="cat-pill active">✦ Anime</div>
+        <div class="cat-pill">Space</div>
+        <div class="cat-pill">Cars</div>
+        <div class="cat-pill">Nature</div>
+        <div class="cat-pill">Architecture</div>
+        <div class="cat-pill">Sci-Fi</div>
+        <div class="cat-pill">Landscapes</div>
+        <div class="cat-pill">Cyberpunk</div>
+        <div class="cat-pill">Fantasy Art</div>
+        <div class="cat-pill">Dark Academia</div>
+      </div>
+    </div>
+    <div class="categories-note">Currently delivering: <strong style="color:var(--accent)">Anime</strong> · More unlocking soon</div>
+  </section>
+
+  <!-- ── PRICING ────────────────────────────────────────── -->
+  <section class="section" id="pricing" style="background:var(--surface);">
+    <div class="container">
+      <div class="reveal" style="text-align:center;">
+        <div class="section-label">Pricing</div>
+        <h2 class="section-title">Start free. Upgrade when you're ready.</h2>
+        <p class="section-sub" style="margin:0 auto;">Start free on Telegram. Upgrade when you want more sizes, more categories, and per-device control.</p>
+      </div>
+
+      <div class="pricing-grid">
+
+        <!-- Free -->
+        <div class="price-card reveal reveal-delay-1">
+          <div class="price-tier">Free</div>
+          <div class="price-amount">$0<span>/mo</span></div>
+          <p class="price-desc">Everything you need to start — no card, no catch.</p>
+          <ul class="price-features">
+            <li><span class="check">✦</span> Daily FHD wallpaper (1920×1080)</li>
+            <li><span class="check">✦</span> Telegram delivery</li>
+            <li><span class="check">✦</span> Anime category</li>
+            <li><span class="check">✦</span> Forever free</li>
+          </ul>
+          <a href="https://t.me/framed_wallpapers" class="btn btn-ghost price-cta" data-analytics="cta-click" data-analytics-label="free-join" target="_blank" rel="noopener noreferrer">Join Free on Telegram →</a>
+        </div>
+
+        <!-- Framed -->
+        <div class="price-card reveal reveal-delay-2">
+          <div class="price-tier">Framed</div>
+          <div class="price-amount">$4.99<span>/mo</span></div>
+            <p class="price-desc">Standard sizes, your chosen category, delivered to your Telegram daily.</p>
+          <ul class="price-features">
+            <li><span class="check">✦</span> Standard sizes <span class="soon">(1080p, 2K, 4K, Phone, Tablet)</span></li>
+            <li><span class="check">✦</span> 1 category of your choice</li>
+            <li><span class="check">✦</span> Telegram DM delivery</li>
+            <li><span class="check">✦</span> Early access to new categories</li>
+          </ul>
+            <button class="btn btn-ghost price-cta" data-analytics="cta-click" data-analytics-label="framed-subscribe" onclick="openCheckout('framed')">Continue to checkout — $4.99/mo →</button>
+        </div>
+
+        <!-- Framed+ -->
+        <div class="price-card featured reveal reveal-delay-3">
+          <div class="price-badge">Most Popular</div>
+          <div class="price-tier">Framed+</div>
+          <div class="price-amount" style="color:var(--accent)">$9.99<span>/mo</span></div>
+          <p class="price-desc">All categories, per-device. Pick your sizes. Full archive. Zero effort.</p>
+          <ul class="price-features">
+            <li><span class="check">✦</span> All categories — different per device</li>
+            <li><span class="check">✦</span> Choose which sizes per device</li>
+            <li><span class="check">✦</span> Full wallpaper archive — every drop, ever</li>
+            <li><span class="check">✦</span> Auto-change app <span class="soon">(Android, Windows, macOS)</span></li>
+          </ul>
+            <button class="btn btn-primary price-cta" data-analytics="cta-click" data-analytics-label="framed-plus-subscribe" onclick="openCheckout('framed_plus')">Continue to checkout — $9.99/mo →</button>
+        </div>
+
+      </div>
+
+      <!-- Bundles callout -->
+      <div class="bundle-callout reveal">
+        <div class="bundle-left">
+          <div class="bundle-icon">📦</div>
+          <div class="bundle-text">
+            <strong>Wallpaper Packs</strong>
+            <span>Themed collections — "Fall 2025 Anime Season", "Classic Shonen" and more. Buy once, keep forever.</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-shrink:0;">
+          <div class="bundle-price">$9.99 <small>one-time / pack</small></div>
+          <button class="btn btn-ghost btn-sm" data-analytics="cta-click" data-analytics-label="packs-browse" onclick="alert('Packs coming soon!')">Browse Packs</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── FINAL CTA ─────────────────────────────────────── -->
+  <section class="section final-cta">
+    <div class="container" style="text-align:center;">
+      <div class="reveal">
+        <div class="section-label">Get started</div>
+        <h2 class="section-title">Ready for a better wallpaper?</h2>
+        <p class="section-sub">Join free on Telegram. Get your first drop tomorrow morning.</p>
+        <br />
+        <a href="#pricing" class="btn btn-primary btn-lg" data-analytics="cta-click" data-analytics-label="final-cta">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+          See plans
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ─────────────────────────────────────────── -->
+  <footer>
+    <div class="footer-logo">FRAME<span>D</span></div>
+    <div class="footer-copy">© 2026 Framed · framed.app</div>
+  </footer>
+
+  <!-- ── CHECKOUT MODAL ────────────────────────────────── -->
+  <div id="checkoutModal" class="modal-overlay" onclick="closeCheckoutOverlay(event)">
+    <div class="modal">
+      <button class="modal-close" onclick="closeCheckout()" aria-label="Close">&times;</button>
+      <div class="modal-tier-badge" id="modalTierBadge">✦ Framed</div>
+      <h3 class="modal-title">One step before checkout</h3>
+      <p class="modal-sub">Enter your Telegram Chat ID so we can attach the checkout to your account and deliver wallpapers directly after payment.</p>
+
+      <div class="modal-step">
+        <div class="modal-step-num">1</div>
+        <div>
+          <div class="modal-step-label">Get your Chat ID</div>
+          <div class="modal-step-desc">Open <a href="https://t.me/userinfobot" target="_blank" class="modal-link">@userinfobot</a> on Telegram — it replies with your numeric ID instantly.</div>
+        </div>
+      </div>
+
+      <div class="modal-step">
+        <div class="modal-step-num">2</div>
+        <div style="width:100%">
+          <div class="modal-step-label">Enter it below</div>
+          <input
+            type="text"
+            id="chatIdInput"
+            class="modal-input"
+            placeholder="e.g. 123456789"
+            inputmode="numeric"
+            onkeydown="if(event.key==='Enter') proceedToCheckout()"
+          />
+          <div id="chatIdError" class="modal-error" style="display:none">Please enter your numeric Telegram Chat ID (5–15 digits).</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary modal-cta" onclick="proceedToCheckout()">Continue to checkout →</button>
+      <div class="modal-secure">🔒 Secure checkout powered by Stripe · Cancel anytime</div>
+    </div>
+  </div>
+
+  <!-- ── JS ────────────────────────────────────────────── -->
+  <script>
+    // ── Stripe Payment Link URLs ──────────────────────────
+    // After creating your Payment Links in Stripe Dashboard, paste the URLs here.
+    // Make sure each link has metadata set: { tier: "framed" } / { tier: "framed+" }
+    const STRIPE_LINKS = {
+      framed:      'https://buy.stripe.com/REPLACE_WITH_FRAMED_LINK',
+      framed_plus: 'https://buy.stripe.com/REPLACE_WITH_FRAMED_PLUS_LINK'
+    };
+
+    // ── Checkout Modal ────────────────────────────────────
+    let _currentTier = null;
+
+    function openCheckout(tier) {
+      _currentTier = tier;
+      const badge = document.getElementById('modalTierBadge');
+      badge.textContent = tier === 'framed_plus' ? '✦ Framed+  —  $9.99/mo' : '✦ Framed  —  $4.99/mo';
+      document.getElementById('chatIdInput').value = '';
+      document.getElementById('chatIdError').style.display = 'none';
+      document.getElementById('checkoutModal').classList.add('open');
+      setTimeout(() => document.getElementById('chatIdInput').focus(), 150);
+    }
+
+    function closeCheckout() {
+      document.getElementById('checkoutModal').classList.remove('open');
+    }
+
+    function closeCheckoutOverlay(e) {
+      if (e.target === document.getElementById('checkoutModal')) closeCheckout();
+    }
+
+    function proceedToCheckout() {
+      const raw   = document.getElementById('chatIdInput').value.trim();
+      const error = document.getElementById('chatIdError');
+      if (!raw || !/^\d{5,15}$/.test(raw)) {
+        error.style.display = 'block';
+        document.getElementById('chatIdInput').focus();
+        return;
+      }
+      error.style.display = 'none';
+
+      const base = STRIPE_LINKS[_currentTier];
+      if (!base || base.includes('REPLACE_WITH')) {
+        alert('Payment links coming soon! Thank you for your interest — check back shortly.');
+        return;
+      }
+
+      const url = base + '?client_reference_id=' + encodeURIComponent(raw);
+      trackAnalytics('form-submit', { form: 'checkout-modal', tier: _currentTier, chat_id_length: raw.length });
+      trackAnalytics('checkout-start', { tier: _currentTier, chat_id_length: raw.length, handoff: 'telegram_chat_id_to_stripe' });
+      closeCheckout();
+      window.open(url, '_blank');
+    }
+
+    function trackAnalytics(eventName, props = {}) {
+      if (typeof plausible === 'function') {
+        plausible(eventName, { props });
+      }
+      if (window.gtag) {
+        window.gtag('event', eventName, props);
+      }
+    }
+
+    function getScrollDepthBucket() {
+      const doc = document.documentElement;
+      const scrollable = Math.max(doc.scrollHeight - window.innerHeight, 1);
+      const depth = Math.min(100, Math.round((window.scrollY / scrollable) * 100));
+      if (depth >= 100) return '100';
+      if (depth >= 75) return '75';
+      if (depth >= 50) return '50';
+      if (depth >= 25) return '25';
+      return '0';
+    }
+
+    let lastScrollBucket = '0';
+    let exitIntentSent = false;
+
+    document.addEventListener('click', (event) => {
+      const target = event.target.closest('[data-analytics]');
+      if (!target) return;
+      trackAnalytics(target.dataset.analytics, {
+        label: target.dataset.analyticsLabel || target.textContent.trim().slice(0, 80)
+      });
+    });
+
+    window.addEventListener('scroll', () => {
+      const bucket = getScrollDepthBucket();
+      if (bucket !== lastScrollBucket) {
+        lastScrollBucket = bucket;
+        trackAnalytics('scroll-depth', { bucket });
+      }
+    }, { passive: true });
+
+    document.addEventListener('mouseleave', (event) => {
+      if (exitIntentSent || event.clientY > 0) return;
+      exitIntentSent = true;
+      trackAnalytics('exit-intent', { section: getScrollDepthBucket() });
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeCheckout();
+    });
+
+    // ── Lightweight experiment assignment ────────────────
+    const EXPERIMENT_STORAGE_PREFIX = 'framed-exp-';
+
+    function hashExperimentKey(key) {
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) {
+        hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+      }
+      return hash;
+    }
+
+    function getVariant(experimentName) {
+      const storageKey = EXPERIMENT_STORAGE_PREFIX + experimentName;
+      try {
+        const existing = localStorage.getItem(storageKey);
+        if (existing === 'A' || existing === 'B') return existing;
+      } catch (_) {}
+
+      const bucket = (hashExperimentKey(`${experimentName}:${navigator.userAgent}`) % 100) < 50 ? 'A' : 'B';
+      try {
+        localStorage.setItem(storageKey, bucket);
+      } catch (_) {}
+      return bucket;
+    }
+
+    const pricingHeadlineVariant = getVariant('pricing-headline');
+    if (pricingHeadlineVariant === 'B') {
+      const headline = document.querySelector('#pricing .section-title');
+      const subtitle = document.querySelector('#pricing .section-sub');
+      if (headline) headline.textContent = 'Choose your cinematic wallpaper plan.';
+      if (subtitle) subtitle.textContent = 'Pick the tier that fits how you use Telegram, then upgrade when you want more control.';
+    }
+    trackAnalytics('experiment-assigned', { experiment: 'pricing-headline', variant: pricingHeadlineVariant });
+
+    // ── Nav scroll effect ─────────────────────────────────
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 40);
+    });
+
+    // ── Hero bg load animation ────────────────────────────
+    const heroBg = document.getElementById('heroBg');
+    const img = new Image();
+    img.onload = () => heroBg.classList.add('loaded');
+    img.src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=85&fit=crop';
+    setTimeout(() => heroBg.classList.add('loaded'), 100);
+
+    // ── Reveal on scroll ──────────────────────────────────
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    reveals.forEach(el => observer.observe(el));
+
+    trackAnalytics('page-view', { path: window.location.pathname });
+  </script>
+</body>
+</html>
