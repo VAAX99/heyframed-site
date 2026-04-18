@@ -70,12 +70,20 @@ To bring daily visual storytelling to your digital life through carefully curate
 - **Deep Dark (#0d1117):** Sophistication, focus, cinematic quality
 - **Clean Whites:** Clarity, simplicity, premium feel
 
-#### Accessibility Requirements
-- **Text Contrast:** Minimum 4.5:1 ratio for normal text, 3:1 for large text
+#### Accessibility Requirements (WCAG 2.1 AA)
+- **Text Contrast:** Minimum 4.5:1 ratio for normal text, 3:1 for large text (7:1 for AAA)
 - **Interactive Elements:** Must meet minimum 3:1 contrast against background
+- **Touch Target Size:** Minimum 44×44px for all interactive elements (iOS) / 48×48dp (Material Design)
+- **Touch Spacing:** Minimum 8px gap between adjacent touch targets
 - **Color Independence:** Never convey information by color alone—always include text/icons
 - **Dark Mode Compliance:** Maintain contrast ratios in both light and dark themes
-- **Focus Indicators:** Visible focus states for keyboard navigation
+- **Focus Indicators:** Visible 2-4px focus rings on interactive elements with proper contrast
+- **Screen Reader Support:** All images have descriptive `alt` attributes, icon-only buttons have `aria-label`
+- **Keyboard Navigation:** Tab order matches visual order, all interactive elements reachable
+- **Reduced Motion:** Respect `prefers-reduced-motion` setting, provide static alternatives
+- **Skip Links:** "Skip to main content" for keyboard users
+- **Semantic HTML:** Use proper heading hierarchy (h1→h6), `button` elements, form labels
+- **Error Recovery:** Clear error messages with recovery paths, inline validation after blur
 
 ### Typography
 
@@ -113,13 +121,24 @@ To bring daily visual storytelling to your digital life through carefully curate
 - Minimum 44×44px touch targets on interactive icons
 - Maintain visual consistency with same icon family (Heroicons, Lucide)
 
+**Icon System:**
+- **Style:** Consistent stroke width (1.5-2px), geometric, minimal fills
+- **Library:** Heroicons or Lucide for systematic consistency
+- **Sizes:** 16px (small), 20px (default), 24px (large), 32px (hero)
+- **States:** Default, hover, active, disabled with consistent opacity/color changes
+- **Accessibility:** All decorative icons have `aria-hidden="true"`, functional icons have labels
+
 **Common Icons:**
-- ✦ (Sparkle/Star) — Used for premium features, bullet points
+- ✦ (Sparkle/Star) — Used for premium features, bullet points (decorative only)
 - Vector equivalents for UI:
-  - Mobile/Device icon — Subscription/delivery
-  - Clock/Sun icon — Daily delivery concept  
-  - Sparkle vector — Transformation/magic
-  - Picture Frame vector — Core brand symbol
+  - Mobile/Device icon — Subscription/delivery (`aria-label="Device delivery"`)
+  - Clock/Sun icon — Daily delivery concept (`aria-label="Daily delivery"`)
+  - Sparkle vector — Transformation/magic (`aria-label="Premium feature"`)
+  - Picture Frame vector — Core brand symbol (`aria-label="Framed logo"`)
+  - Download icon — Archive access (`aria-label="Download wallpaper"`)
+  - Settings icon — Preferences (`aria-label="Settings"`)
+  - Check icon — Confirmation states (`aria-label="Completed"`)
+  - Arrow icons — Navigation (`aria-label="Next page"` or `aria-label="Previous page"`)
 
 ---
 
@@ -304,14 +323,18 @@ To bring daily visual storytelling to your digital life through carefully curate
 
 ## Technical Brand Implementation
 
-### Performance Guidelines
-- **Image Optimization:** Use WebP/AVIF formats, responsive images with `srcset`
-- **Font Loading:** `font-display: swap` to prevent invisible text
-- **Critical CSS:** Inline critical styles, defer non-critical CSS  
-- **Lazy Loading:** Use `loading="lazy"` for below-fold images
-- **Bundle Optimization:** Split code by route, dynamic imports for heavy components
-- **Layout Stability:** Declare image dimensions to prevent CLS
-- **Third-party Scripts:** Load async/defer, audit regularly for necessity
+### Performance Guidelines (Core Web Vitals)
+- **Image Optimization:** Use WebP/AVIF formats, responsive images with `srcset`, lazy load non-critical assets
+- **Font Loading:** `font-display: swap` to prevent FOIT, preload critical fonts only
+- **Critical CSS:** Inline above-the-fold styles, defer below-fold CSS
+- **Layout Stability:** Declare image dimensions, reserve space for async content (CLS < 0.1)
+- **Bundle Optimization:** Route-level code splitting, dynamic imports for heavy features
+- **Main Thread Budget:** Keep per-frame work under 16ms for 60fps smooth interactions
+- **Input Latency:** Provide visual feedback within 100ms of user interactions
+- **Loading States:** Show skeleton/shimmer for operations exceeding 300ms
+- **Third-party Scripts:** Load async/defer, audit performance impact regularly
+- **Debounce/Throttle:** Use for high-frequency events (scroll, resize, input)
+- **Intersection Observer:** Use for scroll-based animations and lazy loading
 
 ### Design Tokens (CSS Custom Properties)
 ```css
@@ -339,44 +362,90 @@ To bring daily visual storytelling to your digital life through carefully curate
 ### Component Guidelines
 
 **Buttons:**
-- Height: 40px (small), 52px (default), 58px (large)
-- Minimum 44×44px touch targets for mobile accessibility
-- Use `button` element, never `div` with click handlers
-- Include `aria-label` for icon-only buttons
-- States: default, hover, active, disabled, loading
-- Loading state: disable during async operations with spinner
-- Hover: `transform: translateY(-1px)` with glow effect
+- **Sizes:** 40px (small), 52px (default), 58px (large) - all meet 44px minimum touch target
+- **Touch Targets:** Extend hit area beyond visual bounds if needed for 44×44px minimum
+- **Semantic HTML:** Always use `button` element, never `div` with click handlers
+- **Accessibility:** Icon-only buttons require `aria-label`, disabled state uses `disabled` attribute
+- **States:** default, hover (`translateY(-1px)` + glow), active, disabled (opacity: 0.38), loading
+- **Loading Feedback:** Disable during async operations, show spinner, preserve button width
+- **Animation:** 150-300ms transitions, honor `prefers-reduced-motion`
+- **Keyboard Support:** Visible focus rings, Space/Enter activation
+- **Touch Feedback:** Subtle scale (0.95-1.05) on press for mobile
 
 **Cards:**
-- Border radius: 10px (default), 16px (large)
-- Subtle borders using `--border` color token
-- Hover states: scale(1.03), border accent, elevated shadow
-- Maintain aspect ratios with CSS aspect-ratio property
-- Handle content overflow with truncation or scrolling
+- **Border Radius:** 10px (default), 16px (large), consistent with design system
+- **Elevation:** Subtle borders (`--border`), hover shadow elevation for depth
+- **Hover States:** `scale(1.03)`, accent border, elevated shadow, 150-300ms transition
+- **Aspect Ratios:** Use CSS `aspect-ratio` property for consistent proportions
+- **Content Handling:** Truncate with ellipsis, provide expand/tooltip for full content
+- **Interactive States:** Clear visual feedback, maintain accessibility contrast
+- **Touch Targets:** Entire card clickable with proper focus management
+- **Loading States:** Skeleton placeholder during content load
 
 **Forms & Inputs:**
-- Labels visible (not placeholder-only)
-- Error messages inline below fields
-- Autocomplete attributes for better UX
-- Focus states with `focus-visible:ring-*` styling
-- Required field indicators (asterisk)
-- Helper text for complex inputs
+- **Labels:** Always visible with `for` attribute, never placeholder-only
+- **Error Handling:** Inline messages below fields, clear recovery paths
+- **Validation:** On blur (not keystroke), real-time for critical fields
+- **Accessibility:** Proper `autocomplete`, `aria-describedby` for helper text
+- **Focus States:** Visible 2-4px rings with proper contrast ratios
+- **Required Fields:** Asterisk indicators, `required` attribute for screen readers
+- **Helper Text:** Persistent below complex inputs, not just placeholders
+- **Input Types:** Semantic types (email, tel, number) for mobile keyboards
+- **Touch Targets:** Minimum 44px height for mobile usability
+- **Progressive Disclosure:** Complex options revealed as needed, not overwhelming upfront
 
 **Animations:**
-- Duration: 150-300ms for micro-interactions
-- Easing: ease-out for entering, ease-in for exiting
-- Honor `prefers-reduced-motion` setting
-- Animate `transform`/`opacity` only for performance
-- Never `transition: all` - specify properties
+- **Duration:** 150-300ms for micro-interactions, max 400ms for complex transitions
+- **Easing:** ease-out for entering, ease-in for exiting, spring physics for natural feel
+- **Performance:** Animate `transform`/`opacity` only, avoid layout-triggering properties
+- **Accessibility:** Honor `prefers-reduced-motion`, provide static alternatives
+- **Specificity:** Never `transition: all` - always specify exact properties
+- **Purpose:** Every animation must convey meaning, not just decoration
+- **Interruption:** All animations must be interruptible by user input
+- **Continuity:** Maintain spatial relationships during transitions
+- **Loading States:** Progress indicators for operations >300ms
+- **State Changes:** Smooth transitions between hover/active/disabled states
 
 **Responsive Design:**
-- Mobile-first approach: design for 375px then scale up
-- Breakpoints: 375px (mobile), 768px (tablet), 1024px (desktop), 1440px (large)
-- Container max-width: 1160px with 24px horizontal padding
-- Touch-friendly spacing: minimum 8px between interactive elements
-- Readable line lengths: 35-60 characters mobile, 60-75 desktop
-- Viewport meta tag: `width=device-width, initial-scale=1`
-- No horizontal scroll on any breakpoint
+- **Mobile-First:** Design for 375px base, progressively enhance for larger screens
+- **Breakpoints:** 375px (mobile), 768px (tablet), 1024px (desktop), 1440px (large)
+- **Container:** Max-width 1160px with 24px horizontal padding, fluid scaling
+- **Touch Spacing:** Minimum 8px between interactive elements, 44×44px touch targets
+- **Typography Scale:** Responsive font sizes using `clamp()` for fluid scaling
+- **Line Length:** 35-60 characters mobile, 60-75 desktop for optimal readability
+- **Viewport:** `width=device-width, initial-scale=1` - never disable zoom
+- **Layout:** No horizontal scroll, flexible grid systems, proper content priority
+- **Safe Areas:** Respect device safe areas for notch/gesture navigation
+- **Orientation:** Maintain usability in both portrait and landscape modes
+
+### Interaction Patterns
+
+**Touch & Gestures:**
+- **Touch Targets:** Minimum 44×44px (iOS) / 48×48dp (Android) for all interactive elements
+- **Touch Feedback:** Visual response within 100ms, subtle scale/ripple effects
+- **Gesture Support:** Standard platform gestures (swipe-back, pinch-zoom) without conflicts
+- **Hover vs Touch:** Primary interactions use tap/click, don't rely on hover alone
+- **Multi-Touch:** Support standard gestures, avoid conflicting gesture regions
+
+**Navigation Patterns:**
+- **Predictable Back:** Consistent back navigation behavior, preserve state/scroll position
+- **Deep Linking:** All key screens accessible via URL for sharing and bookmarking
+- **Breadcrumbs:** Use for hierarchies 3+ levels deep on web
+- **Focus Management:** After navigation, move focus to main content for accessibility
+- **Loading Transitions:** Skeleton screens for >300ms loads, preserve spatial continuity
+
+**Feedback Systems:**
+- **Loading States:** Skeleton UI, progress indicators, disable controls during async operations
+- **Error Recovery:** Clear messages with specific recovery actions, not generic "error occurred"
+- **Success Feedback:** Brief confirmation (toast, checkmark, color change) for completed actions
+- **Empty States:** Helpful guidance and clear next steps when no content exists
+- **Undo Support:** Provide undo for destructive actions (delete, bulk operations)
+
+**Progressive Enhancement:**
+- **Core Functionality:** Works without JavaScript for critical paths
+- **Graceful Degradation:** Features degrade elegantly when resources unavailable
+- **Offline Support:** Basic functionality available offline with clear status indication
+- **Network Awareness:** Adapt interface for slow/unstable connections
 
 ---
 
@@ -391,23 +460,66 @@ To bring daily visual storytelling to your digital life through carefully curate
 - [ ] CTAs use approved language
 
 ### UI/UX Implementation Checklist
+
+**Accessibility (WCAG 2.1 AA):**
 - [ ] All interactive elements have minimum 44×44px touch targets
-- [ ] Form inputs include proper labels and autocomplete attributes
-- [ ] Icon-only buttons have `aria-label` attributes
-- [ ] Focus states are visible for keyboard navigation
+- [ ] Form inputs include proper labels and autocomplete attributes  
+- [ ] Icon-only buttons have descriptive `aria-label` attributes
+- [ ] Focus states are visible (2-4px rings) for keyboard navigation
+- [ ] Text contrast meets 4.5:1 minimum (7:1 for AAA)
+- [ ] Color is not the only way to convey information
+- [ ] Images include descriptive `alt` attributes and explicit dimensions
+- [ ] Heading hierarchy follows logical order (h1→h6, no skipping)
+- [ ] Skip links provided for keyboard users
+- [ ] Screen reader tested with actual assistive technology
+
+**Performance & Core Web Vitals:**
+- [ ] Images optimized (WebP/AVIF), responsive with `srcset`
+- [ ] Critical CSS inlined, non-critical deferred
+- [ ] Layout shift (CLS) < 0.1 with reserved spaces for dynamic content
+- [ ] Loading states for operations >300ms with skeleton/spinner UI
+- [ ] Main thread budget <16ms per frame for 60fps interactions
+- [ ] Third-party scripts loaded async/defer, impact audited
+
+**Interaction & Usability:**
 - [ ] Animations respect `prefers-reduced-motion` setting
-- [ ] Text contrast meets WCAG 2.1 AA standards (4.5:1)
-- [ ] Semantic HTML used (`button`, `a`, `label`, proper headings)
-- [ ] Images include `alt` attributes and explicit dimensions
-- [ ] Loading states show progress indicators for operations >300ms
-- [ ] Error messages are inline and include recovery guidance
+- [ ] Touch feedback provided within 100ms of user interaction
+- [ ] Error messages are inline with clear recovery paths
+- [ ] Loading states disable controls and show clear progress
+- [ ] Back navigation preserves state and scroll position
+- [ ] Empty states provide helpful guidance and next steps
+- [ ] Undo functionality for destructive actions
+
+**Technical Implementation:**
+- [ ] Semantic HTML used (`button`, `a`, `label`, proper landmarks)
+- [ ] Progressive enhancement: core functionality works without JS
+- [ ] Responsive design tested at all major breakpoints
+- [ ] Cross-browser compatibility verified (Chrome, Firefox, Safari, Edge)
+- [ ] Mobile testing on actual devices, not just desktop simulation
 
 ### Quality Standards
-- All images must be 16:9 aspect ratio
-- Minimum resolution 1920×1080 for delivery
-- Focal point optimization for various crops
-- Brand overlay consistent across all wallpapers
-- Caption length ≤120 characters
+
+**Content Quality:**
+- All images must be 16:9 aspect ratio for consistent delivery
+- Minimum resolution 1920×1080 (FHD) for standard tier
+- Higher resolutions available: 2560×1440 (QHD), 3840×2160 (4K)
+- Focal point optimization using Cloudinary auto-detection for smart cropping
+- Brand overlay positioned intelligently to avoid obscuring key visual elements
+- Caption length ≤120 characters for optimal Telegram display
+
+**Technical Quality:**
+- Image compression optimized for quality/size balance (WebP/AVIF preferred)
+- Color profile consistency (sRGB) across all content
+- Metadata preservation for attribution and organization
+- Deduplication systems to prevent repeated content
+- Version control for content updates and corrections
+
+**Brand Consistency:**
+- Visual style matching established content categories
+- Consistent caption formatting and voice
+- IP compliance verification for all paid tier content
+- Quality assurance review before publication
+- Performance monitoring for delivery speed and reliability
 
 ### Approval Process
 - Content curation follows established principles
@@ -417,5 +529,21 @@ To bring daily visual storytelling to your digital life through carefully curate
 
 ---
 
-*Last updated: April 18, 2026*
+## Document History
+
+**Version 2.0** - April 18, 2026
+- Enhanced accessibility guidelines to WCAG 2.1 AA standards
+- Added comprehensive interaction patterns and modern UX guidelines
+- Expanded performance guidelines with Core Web Vitals focus
+- Updated component specifications with detailed accessibility requirements
+- Added progressive enhancement and technical quality standards
+
+**Version 1.0** - March 2026
+- Initial comprehensive brand guide
+- Established design system and visual identity
+- Content guidelines and business model documentation
+
+---
+
 *For questions about brand implementation, consult the UX Designer or project lead.*
+*This document serves as the single source of truth for Framed brand implementation.*
