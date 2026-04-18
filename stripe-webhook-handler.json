@@ -1,0 +1,250 @@
+{
+  "name": "Framed — Stripe Webhook Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stripe-framed",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "stripe-framed"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the Stripe event type from the raw body\nconst body = $input.first().json.body || $input.first().json;\nconst eventType = body.type || '';\nconst eventData = body.data || {};\n\nreturn [{\n  json: {\n    eventType,\n    eventData,\n    rawBody: body\n  }\n}];"
+      },
+      "id": "node-parse-event",
+      "name": "Parse Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-new-sub",
+              "leftValue": "={{ $json.eventType }}",
+              "rightValue": "checkout.session.completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-is-new-sub",
+      "name": "Is New Sub?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract subscriber info from checkout.session.completed\nconst session = $input.first().json.eventData?.object || {};\n\n// Telegram chat_id should be passed as metadata or client_reference_id\nconst chatId = session.metadata?.telegram_chat_id || session.client_reference_id || '';\nconst username = session.metadata?.telegram_username || '';\nconst stripeCustomerId = session.customer || '';\nconst priceId = session.metadata?.price_id || '';\nconst category = session.metadata?.category || 'all';\n\n// Use the documented Framed+ price ID from _Framed-Project.md.\nconst FRAMED_PLUS_PRICE_ID = 'price_1T93Nw3JAJzIMzIJZXm9IiBA';\nconst tier = priceId === FRAMED_PLUS_PRICE_ID ? 'framed+' : 'framed';\n\nconst today = new Date().toISOString().split('T')[0];\n\nif (!chatId) {\n  throw new Error('No telegram_chat_id in session metadata or client_reference_id');\n}\n\nreturn [{\n  json: {\n    chat_id: chatId,\n    username,\n    tier,\n    active: true,\n    category,\n    subscription_state: 'active',\n    stripe_customer_id: stripeCustomerId,\n    subscribed_date: today\n  }\n}];"
+      },
+      "id": "node-extract-new-sub",
+      "name": "Extract New Subscriber",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 180]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Subscribers",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "tier": "={{ $json.tier }}",
+            "active": "={{ $json.active }}",
+            "category": "={{ $json.category }}",
+            "subscription_state": "={{ $json.subscription_state }}",
+            "stripe_customer_id": "={{ $json.stripe_customer_id }}",
+            "subscribed_date": "={{ $json.subscribed_date }}"
+          },
+          "matchingColumns": ["chat_id"],
+          "schema": [
+            {"id": "chat_id", "displayName": "chat_id", "required": false, "defaultMatch": true, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false},
+            {"id": "username", "displayName": "username", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false},
+            {"id": "tier", "displayName": "tier", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false},
+            {"id": "active", "displayName": "active", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false},
+            {"id": "category", "displayName": "category", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false},
+            {"id": "subscription_state", "displayName": "subscription_state", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false},
+            {"id": "stripe_customer_id", "displayName": "stripe_customer_id", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false},
+            {"id": "subscribed_date", "displayName": "subscribed_date", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false}
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-upsert-subscriber",
+      "name": "Upsert Subscriber",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1120, 180],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "406792303",
+          "name": "Framed Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-cancel",
+              "leftValue": "={{ $json.eventType }}",
+              "rightValue": "customer.subscription.deleted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-is-cancel",
+      "name": "Is Cancellation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract customer ID from cancellation event\nconst subscription = $json.eventData?.object || {};\nconst stripeCustomerId = subscription.customer || '';\n\nif (!stripeCustomerId) {\n  throw new Error('No customer ID in subscription.deleted event');\n}\n\nreturn [{\n  json: {\n    stripe_customer_id: stripeCustomerId,\n    active: false\n  }\n}];"
+      },
+      "id": "node-extract-cancel",
+      "name": "Extract Cancellation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 420]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Subscribers",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "stripe_customer_id": "={{ $json.stripe_customer_id }}",
+            "active": "={{ $json.active }}"
+          },
+          "matchingColumns": ["stripe_customer_id"],
+          "schema": [
+            {"id": "stripe_customer_id", "displayName": "stripe_customer_id", "required": false, "defaultMatch": true, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false},
+            {"id": "active", "displayName": "active", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "removed": false}
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-set-inactive",
+      "name": "Set active=false",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1340, 420],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "406792303",
+          "name": "Framed Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"received\": true }",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-200",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 180]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Parse Event", "type": "main", "index": 0}]]
+    },
+    "Parse Event": {
+      "main": [[{"node": "Is New Sub?", "type": "main", "index": 0}]]
+    },
+    "Is New Sub?": {
+      "main": [
+        [{"node": "Extract New Subscriber", "type": "main", "index": 0}],
+        [{"node": "Is Cancellation?", "type": "main", "index": 0}]
+      ]
+    },
+    "Extract New Subscriber": {
+      "main": [[{"node": "Upsert Subscriber", "type": "main", "index": 0}]]
+    },
+    "Upsert Subscriber": {
+      "main": [[{"node": "Respond 200", "type": "main", "index": 0}]]
+    },
+    "Is Cancellation?": {
+      "main": [
+        [{"node": "Extract Cancellation", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Extract Cancellation": {
+      "main": [[{"node": "Set active=false", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": ""
+  },
+  "pinData": {}
+}

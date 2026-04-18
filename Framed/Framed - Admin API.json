@@ -1,0 +1,212 @@
+{
+  "name": "Framed - Admin API",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "admin",
+        "options": {
+          "noResponseBody": false
+        }
+      },
+      "id": "admin-webhook",
+      "name": "Admin Dashboard Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "framed-admin"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Serve the admin dashboard HTML\nconst html = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Framed - Admin Dashboard</title>\n    <style>\n        /* CSS from admin-dashboard.html */\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto; background: #1a1a1a; color: #fff; line-height: 1.6; }\n        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }\n        .header { text-align: center; margin-bottom: 40px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; }\n        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }\n        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }\n        .stat-card { background: #2a2a2a; padding: 30px; border-radius: 12px; text-align: center; }\n        .stat-value { font-size: 2.5rem; font-weight: bold; color: #667eea; }\n        .subscribers-table { background: #2a2a2a; border-radius: 12px; overflow: hidden; }\n        table { width: 100%; border-collapse: collapse; }\n        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #3a3a3a; }\n        .tier-badge { padding: 4px 12px; border-radius: 20px; font-weight: 600; }\n        .tier-framed { background: #667eea; color: white; }\n        .tier-framed-plus { background: #764ba2; color: white; }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <div class=\"header\">\n            <h1>🖼️ Framed Admin Dashboard</h1>\n            <p>Live Subscription Data</p>\n        </div>\n        <div class=\"stats-grid\">\n            <div class=\"stat-card\"><div class=\"stat-value\" id=\"totalSubs\">Loading...</div><div>Total Subscribers</div></div>\n            <div class=\"stat-card\"><div class=\"stat-value\" id=\"activeSubs\">Loading...</div><div>Active Subscriptions</div></div>\n            <div class=\"stat-card\"><div class=\"stat-value\" id=\"revenue\">Loading...</div><div>Monthly Revenue</div></div>\n        </div>\n        <div class=\"subscribers-table\">\n            <table>\n                <thead><tr><th>Username</th><th>Tier</th><th>Status</th><th>Date</th></tr></thead>\n                <tbody id=\"data\">Loading...</tbody>\n            </table>\n        </div>\n    </div>\n    <script>\n        fetch('/webhook/framed-admin-data')\n            .then(r => r.json())\n            .then(data => {\n                document.getElementById('totalSubs').textContent = data.stats.total;\n                document.getElementById('activeSubs').textContent = data.stats.active;\n                document.getElementById('revenue').textContent = '$' + data.stats.revenue;\n                document.getElementById('data').innerHTML = data.subscribers.map(s => \n                    \\`<tr><td>@\\${s.username}</td><td><span class=\"tier-badge tier-\\${s.tier.replace('+','-plus')}\">\\${s.tier}</span></td><td>\\${s.active ? '✓ Active' : '✗ Inactive'}</td><td>\\${s.date}</td></tr>\\`\n                ).join('');\n            });\n    </script>\n</body>\n</html>`;\n\nreturn [{\n  json: {},\n  binary: {\n    data: {\n      data: Buffer.from(html, 'utf8'),\n      mimeType: 'text/html'\n    }\n  }\n}];"
+      },
+      "id": "serve-html",
+      "name": "Serve Dashboard HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "admin-data",
+        "responseMode": "responseNode",
+        "options": {
+          "noResponseBody": false
+        }
+      },
+      "id": "data-webhook",
+      "name": "Admin Data API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 500],
+      "webhookId": "framed-admin-data"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "spreadsheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Subscribers"
+        },
+        "range": "A:F",
+        "options": {}
+      },
+      "id": "read-subscribers",
+      "name": "Read Subscribers Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [460, 500],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process subscriber data and calculate stats\nconst subscribers = [];\nlet totalSubs = 0;\nlet activeSubs = 0;\nlet framedCount = 0;\nlet framedPlusCount = 0;\n\n// Process each row from Google Sheets\nfor (const item of $input.all()) {\n  const data = item.json;\n  \n  // Skip header row\n  if (data.username === 'username' || !data.username) continue;\n  \n  const isActive = data.active === true || data.active === 'true' || data.active === 'TRUE';\n  const tier = (data.tier || '').toLowerCase();\n  \n  totalSubs++;\n  \n  if (isActive) {\n    activeSubs++;\n    if (tier === 'framed') framedCount++;\n    if (tier === 'framed+') framedPlusCount++;\n  }\n  \n  subscribers.push({\n    username: data.username || 'Unknown',\n    chatId: data.chat_id || data.chatId || 'N/A',\n    tier: tier || 'framed',\n    active: isActive,\n    date: data.subscribed_date || data.subscribedDate || 'Unknown',\n    stripeCustomer: data.stripe_customer_id || data.stripeCustomerId || 'N/A'\n  });\n}\n\n// Calculate revenue\nconst monthlyRevenue = (framedCount * 4.99) + (framedPlusCount * 9.99);\n\n// Return formatted data\nreturn [{\n  json: {\n    stats: {\n      total: totalSubs,\n      active: activeSubs,\n      framed: framedCount,\n      framedPlus: framedPlusCount,\n      revenue: monthlyRevenue.toFixed(2)\n    },\n    subscribers: subscribers\n      .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by most recent\n      .slice(0, 50) // Limit to 50 most recent\n  }\n}];"
+      },
+      "id": "process-data",
+      "name": "Process Subscriber Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "archive",
+        "responseMode": "responseNode",
+        "options": {
+          "noResponseBody": false
+        }
+      },
+      "id": "archive-webhook",
+      "name": "Archive API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 720],
+      "webhookId": "framed-archive"
+    },
+    {
+      "parameters": {
+        "jsCode": "const query = $json.query || {};\nconst tier = (query.tier || '').toLowerCase();\nconst requestedDate = query.date || '';\n\nif (tier !== 'framed+') {\n  return [{ json: { error: 'Framed+ subscription required for archive access.' } }];\n}\n\nconst archiveRows = [\n  { date: '2026-04-17', category: 'anime', title: 'Sample title', caption: 'Sample caption', drive_url: 'https://drive.example/sample', telegram_url: '' }\n];\n\nconst filtered = requestedDate ? archiveRows.filter(row => row.date === requestedDate) : archiveRows.slice(0, 14);\n\nreturn [{ json: { archive: filtered, count: filtered.length, statusCode: tier === 'framed+' ? 200 : 403 } }];"
+      },
+      "id": "archive-handler",
+      "name": "Process Archive Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 720]
+    },
+    {
+      "parameters": {
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "archive-respond",
+      "name": "Respond Archive Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 720]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond-data",
+      "name": "Respond with JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 500]
+    }
+  ],
+  "connections": {
+    "Admin Dashboard Webhook": {
+      "main": [
+        [
+          {
+            "node": "Serve Dashboard HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Data API": {
+      "main": [
+        [
+          {
+            "node": "Read Subscribers Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Subscribers Sheet": {
+      "main": [
+        [
+          {
+            "node": "Process Subscriber Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Subscriber Data": {
+      "main": [
+        [
+          {
+            "node": "Respond with JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archive API": {
+      "main": [
+        [
+          {
+            "node": "Process Archive Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Archive Request": {
+      "main": [
+        [
+          {
+            "node": "Respond Archive Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "admin-api-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "admin-dashboard-workflow",
+  "tags": []
+}

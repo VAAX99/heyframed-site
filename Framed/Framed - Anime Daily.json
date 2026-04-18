@@ -1,0 +1,2689 @@
+{
+  "name": "Framed - Anime Daily",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "0a9eb328-adaf-4ddb-9895-2d70a8792425",
+      "name": "Every Day at 7AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        1088
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.animenewsnetwork.com/news/rss.xml",
+        "options": {}
+      },
+      "id": "a4ca0db2-66e9-4df5-89cb-7c4d882fb1ae",
+      "name": "Fetch ANN News RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        768,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate today's month and day (zero-padded)\n// and Unix timestamps for airing schedule query\nconst now = new Date();\nconst month = String(now.getMonth() + 1).padStart(2, '0');\nconst day = String(now.getDate()).padStart(2, '0');\nconst unixNow = Math.floor(Date.now() / 1000);\nconst unixWeekEnd = unixNow + (7 * 24 * 60 * 60);\n\nreturn [{\n  json: {\n    month,\n    day,\n    unixNow,\n    unixWeekEnd\n  }\n}];"
+      },
+      "id": "1bac8c92-5473-409a-81c6-8cf3caa9725b",
+      "name": "Prepare Date Variables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graphql.anilist.co",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "query ($month: String) { Page(perPage: 10) { media(startDate_like: $month, type: ANIME, sort: POPULARITY_DESC) { id title { romaji english } popularity averageScore startDate { year month day } coverImage { extraLarge } bannerImage description(asHtml: false) } } }"
+            },
+            {
+              "name": "variables",
+              "value": "={{ JSON.stringify({month: \"%XXXX\" + $('Prepare Date Variables').first().json.month + $('Prepare Date Variables').first().json.day}) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "014bdfa3-0288-4809-8987-912c0e4f4d2d",
+      "name": "AniList — Today's Anniversaries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        768,
+        992
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graphql.anilist.co",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"query\": \"{ Page(perPage: 5) { media(sort: TRENDING_DESC, type: ANIME, status: RELEASING) { id title { romaji english } popularity trending averageScore coverImage { extraLarge } bannerImage description(asHtml: false) } } }\"\n}",
+        "options": {}
+      },
+      "id": "cd341d8f-e597-4e34-a348-8b18dba2e496",
+      "name": "AniList — Current Trending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        768,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const MIN_POPULARITY = 30000;\nconst PREMIERE_MIN_POPULARITY = 50000;\nconst EPISODE_MIN_POPULARITY = 30000;\nconst MAX_EPISODES = 3;\n\nconst allItems = $input.all();\n\nlet annItems = [];\nlet anniversaryItems = [];\nlet airingSchedules = [];\nlet trendingAnime = [];\n\nfor (const item of allItems) {\n  const data = item.json;\n  if (data.title && data.link && data.pubDate && !data.data) {\n    annItems.push(data);\n    continue;\n  }\n  if (data.data?.Page?.airingSchedules?.length > 0) {\n    airingSchedules = [...airingSchedules, ...data.data.Page.airingSchedules];\n    continue;\n  }\n  if (data.data?.Page?.media?.length > 0) {\n    const media = data.data.Page.media;\n    if (media[0]?.trending !== undefined) {\n      trendingAnime = [...trendingAnime, ...media];\n    } else {\n      anniversaryItems = [...anniversaryItems, ...media];\n    }\n  }\n}\n\n// ---- Load 30-day history ----\nlet recentAnimeIds = new Set();\ntry {\n  const historyData = $('Pass History to Selection').first().json.historyRows || [];\n  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);\n  for (const row of historyData) {\n    if (!row.date || !row.animeId) continue;\n    const rowDate = (typeof row.date === 'number' ? new Date((row.date - 25569) * 86400 * 1000) : new Date(row.date)).getTime();\n    if (rowDate >= thirtyDaysAgo) {\n      recentAnimeIds.add(String(row.animeId));\n    }\n  }\n} catch(e) {\n  // Sheet empty or not connected — continue without history\n}\n\n// ---- Time helpers ----\nconst now = new Date();\nconst todayStart = new Date(now); todayStart.setHours(0,0,0,0);\nconst todayEnd = new Date(now); todayEnd.setHours(23,59,59,999);\nconst weekEnd = new Date(todayEnd.getTime() + (6 * 24 * 60 * 60 * 1000));\n\nfunction airsToday(ep) {\n  const d = new Date(ep.airingAt * 1000);\n  return d >= todayStart && d <= todayEnd;\n}\n\nfunction airsThisWeek(ep) {\n  const d = new Date(ep.airingAt * 1000);\n  return d > todayEnd && d <= weekEnd;\n}\n\n// ---- Sort trending by popularity ----\nconst sortedTrending = trendingAnime\n  .filter(t => (t.popularity || 0) >= MIN_POPULARITY)\n  .sort((a, b) => (b.popularity || 0) - (a.popularity || 0));\n\n// ---- Sort airing by popularity ----\nconst sortedAiring = airingSchedules\n  .filter(ep => ep.media && (ep.media.popularity || 0) >= EPISODE_MIN_POPULARITY)\n  .sort((a, b) => (b.media?.popularity || 0) - (a.media?.popularity || 0));\n\n// ---- Map: animeId -> earliest airing time this week ----\n// Used to find which trending shows drop this week and when\nconst weekAiringMap = {};\nfor (const ep of airingSchedules) {\n  if (!ep.media?.id) continue;\n  if (!airsThisWeek(ep)) continue;\n  if ((ep.media?.popularity || 0) < MIN_POPULARITY) continue;\n  const id = ep.media.id;\n  if (!weekAiringMap[id] || ep.airingAt < weekAiringMap[id].airingAt) {\n    weekAiringMap[id] = ep;\n  }\n}\n\nconst droppingThisWeekIds = new Set(Object.keys(weekAiringMap).map(Number));\n\n// ---- Major news keywords ----\nconst majorNewsKeywords = [\n  'season 2','season 3','season 4','season 5','new season',\n  'officially announced','confirmed','greenlit','renewal','returns',\n  'final season','movie announced','film announced',\n  '10th anniversary','15th anniversary','20th anniversary','25th anniversary'\n];\nfunction isMajorNews(headline) {\n  const h = headline.toLowerCase();\n  return majorNewsKeywords.some(kw => h.includes(kw));\n}\n\nlet finalStory = null;\nlet mainStoryAnimeId = null;\n\n// ---- PRIORITY 1: Anime premiering TODAY (Episode 1 or 2 only) ----\nfor (const ep of sortedAiring) {\n  if (!airsToday(ep)) continue;\n  if (ep.episode > 2) continue;\n  if ((ep.media?.popularity || 0) < PREMIERE_MIN_POPULARITY) continue;\n\n  const anime = sortedTrending.find(t => t.id === ep.media.id) || ep.media;\n  finalStory = {\n    type: 'premiere_today',\n    title: ep.media.title?.english || ep.media.title?.romaji,\n    headlineForCaption: `${ep.media.title?.english || ep.media.title?.romaji} — Episode ${ep.episode} premiered today`,\n    image: ep.media.coverImage?.extraLarge || anime.bannerImage || null,\n    popularity: ep.media.popularity,\n    description: anime.description || '',\n    animeId: ep.media.id\n  };\n  mainStoryAnimeId = ep.media.id;\n  break;\n}\n\n// ---- PRIORITY 2: Very popular continuing episode airing TODAY ----\nif (!finalStory) {\n  for (const ep of sortedAiring) {\n    if (!airsToday(ep)) continue;\n    if (ep.episode <= 2) continue;\n    if ((ep.media?.popularity || 0) < 75000) continue;\n\n    const anime = sortedTrending.find(t => t.id === ep.media.id) || ep.media;\n    finalStory = {\n      type: 'airing_today',\n      title: ep.media.title?.english || ep.media.title?.romaji,\n      romajiTitle: ep.media.title?.romaji || null,\n      headlineForCaption: `${ep.media.title?.english || ep.media.title?.romaji} — Episode ${ep.episode} aired this week`,\n      image: ep.media.coverImage?.extraLarge || anime.bannerImage || null,\n      popularity: ep.media.popularity,\n      description: anime.description || '',\n      animeId: ep.media.id\n    };\n    mainStoryAnimeId = ep.media.id;\n    break;\n  }\n}\n\n// ---- PRIORITY 3: Major news about a popular anime ----\nif (!finalStory) {\n  for (const item of annItems) {\n    if (!isMajorNews(item.title || '')) continue;\n    const headline = (item.title || '').toLowerCase();\n    const matchedAnime = sortedTrending.find(t => {\n      const eng = (t.title?.english || '').toLowerCase();\n      const rom = (t.title?.romaji || '').toLowerCase();\n      return (eng.length > 3 && headline.includes(eng)) ||\n             (rom.length > 3 && headline.includes(rom));\n    });\n    if (matchedAnime && !recentAnimeIds.has(String(matchedAnime.id)) && (matchedAnime.popularity || 0) >= 50000) {\n      finalStory = {\n        type: 'news',\n        title: matchedAnime.title?.english || matchedAnime.title?.romaji,\n        romajiTitle: matchedAnime.title?.romaji || null,\n        headlineForCaption: item.title,\n        image: matchedAnime.coverImage?.extraLarge || matchedAnime.bannerImage || null,\n        popularity: matchedAnime.popularity,\n        description: item.contentSnippet || '',\n        animeId: matchedAnime.id\n      };\n      mainStoryAnimeId = matchedAnime.id;\n      break;\n    }\n  }\n}\n\n// ---- PRIORITY 4: Anniversary / birthday TODAY ----\nif (!finalStory) {\n  const popularAnniversaries = anniversaryItems\n    .filter(a => (a.popularity || 0) >= MIN_POPULARITY)\n    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0));\n  if (popularAnniversaries.length > 0) {\n    const a = popularAnniversaries[0];\n    const age = a.startDate?.year ? new Date().getFullYear() - a.startDate.year : 0;\n    finalStory = {\n      type: 'anniversary',\n      title: a.title?.english || a.title?.romaji,\n      headlineForCaption: `${a.title?.english || a.title?.romaji} turns ${age} years old today 🎂`,\n      image: a.coverImage?.extraLarge || a.bannerImage || null,\n      popularity: a.popularity,\n      description: a.description || '',\n      animeId: a.id\n    };\n    mainStoryAnimeId = a.id;\n  }\n}\n\n// ---- PRIORITY 5: Trending anime NOT dropping this week ----\nif (!finalStory) {\n  const candidate = sortedTrending.find(t => {\n    if (recentAnimeIds.has(String(t.id))) return false;\n    if (droppingThisWeekIds.has(t.id)) return false;\n    return true;\n  });\n\n  if (candidate) {\n    finalStory = {\n      type: 'trending',\n      title: candidate.title?.english || candidate.title?.romaji,\n      romajiTitle: candidate.title?.romaji || null,\n      headlineForCaption: `${candidate.title?.english || candidate.title?.romaji} is the #1 trending anime right now`,\n      image: candidate.coverImage?.extraLarge || candidate.bannerImage || null,\n      popularity: candidate.popularity,\n      description: candidate.description || '',\n      animeId: candidate.id\n    };\n    mainStoryAnimeId = candidate.id;\n  }\n}\n\n// ---- PRIORITY 6: Fallback — pick trending that drops LATEST in the week ----\n// When everything popular drops this week, pick the one furthest away\n// so it feels least like a \"coming soon\" tease\nif (!finalStory && sortedTrending.length > 0) {\n  // Among trending anime dropping this week, find the one airing latest\n  const trendingWithAirTime = sortedTrending\n    .filter(t => !recentAnimeIds.has(String(t.id)))\n    .map(t => ({\n      anime: t,\n      airTime: weekAiringMap[t.id]?.airingAt || 0\n    }))\n    .filter(x => x.airTime > 0)\n    .sort((a, b) => b.airTime - a.airTime); // latest airing first\n\n  const pick = trendingWithAirTime.length > 0\n    ? trendingWithAirTime[0].anime\n    : sortedTrending.find(t => !recentAnimeIds.has(String(t.id))) || sortedTrending[0];\n\n  finalStory = {\n    type: 'trending',\n    title: pick.title?.english || pick.title?.romaji,\n    romajiTitle: pick.title?.romaji || null,\n    headlineForCaption: `${pick.title?.english || pick.title?.romaji} — trending on AniList this week`,\n    image: pick.coverImage?.extraLarge || pick.bannerImage || null,\n    popularity: pick.popularity,\n    description: pick.description || '',\n    animeId: pick.id\n  };\n  mainStoryAnimeId = pick.id;\n}\n\n// ---- Episode list ----\n// Top 3 most popular episodes dropping later this week\n// Excludes: main story anime, anything airing TODAY\nconst episodeList = sortedAiring\n  .filter(ep => {\n    if (ep.media?.id === mainStoryAnimeId) return false;\n    if (airsToday(ep)) return false;\n    if (!airsThisWeek(ep)) return false;\n    return true;\n  })\n  .reduce((acc, ep) => {\n    if (!acc.find(e => e.media?.id === ep.media?.id)) acc.push(ep);\n    return acc;\n  }, [])\n  .slice(0, MAX_EPISODES)\n    .map(ep => {\n    const date = new Date(ep.airingAt * 1000);\n    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });\n    const month = date.toLocaleDateString('en-US', { month: 'short' });\n    const day = date.getDate();\n    const hours = date.getHours().toString().padStart(2, '0');\n    const minutes = date.getMinutes().toString().padStart(2, '0');\n    const title = ep.media?.title?.english || ep.media?.title?.romaji || 'Unknown';\n    return dayName + ' ' + month + ' ' + day + ' ' + hours + ':' + minutes + ' — ' + title + ' Ep.' + ep.episode;\n  })\n  .join('\\n');\n\n// ---- Safety: ensure image exists ----\nif (finalStory && !finalStory.image) {\n  const fallback = sortedTrending.find(t => t.id === mainStoryAnimeId);\n  finalStory.image = fallback?.coverImage?.extraLarge || fallback?.bannerImage ||\n    sortedTrending[0]?.coverImage?.extraLarge || sortedTrending[0]?.bannerImage || null;\n}\n\nreturn [{\n  json: {\n    finalStory,\n    episodeList: episodeList || 'No episodes this week',\n    debug: {\n      airingCount: airingSchedules.length,\n      trendingCount: trendingAnime.length,\n      annCount: annItems.length,\n      storyType: finalStory?.type,\n      selectedTitle: finalStory?.title,\n      episodeListPreview: episodeList,\n      recentAnimeCount: recentAnimeIds.size,\n      droppingThisWeekCount: droppingThisWeekIds.size\n    }\n  }\n}];"
+      },
+      "id": "34925fd5-9860-4a09-bff2-7f8630869462",
+      "name": "Story Selection Logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        1280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graphql.anilist.co",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query ($search: String) { Media(search: $search, type: ANIME) { id title { romaji english } popularity averageScore favourites status coverImage { extraLarge } bannerImage startDate { year month day } } }\",\n  \"variables\": {\n    \"search\": \"{{ $json.newsCandidates[0]?.extractedTitle || $json.trendingStory?.title || 'One Piece' }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "fd8f0c3a-2605-408d-899d-31be4cf7c778",
+      "name": "AniList — Check News Popularity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        320,
+        -576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Story Selection Logic').first().json;\n\nconst story = data.finalStory;\n\nif (!story) {\n  throw new Error('No final story found');\n}\n\nreturn [{\n  json: {\n    finalStory: story,\n    episodeList: data.episodeList,\n    imageUrl: story.image,\n    storyType: story.type,\n    headlineForCaption: story.headlineForCaption\n  }\n}];"
+      },
+      "id": "c40caa21-925e-49b9-a8ff-d63137504345",
+      "name": "Resolve Final Story",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2560,
+        1280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.cloudinary.com/v1_1/ddlmwfeup/image/upload",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"file\": \"{{ $('Extract TMDB Image').first().json.finalStory.image }}\",\n  \"upload_preset\": \"framed_unsigned\"\n}",
+        "options": {}
+      },
+      "id": "56d40940-be31-4afa-ac4b-b894561b4e9b",
+      "name": "Cloudinary — Upload Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3680,
+        1280
+      ],
+      "notes": "Set up HTTP Basic Auth credential with Cloudinary API Key (username) and API Secret (password). Replace cloudName with your actual cloud name."
+    },
+    {
+      "parameters": {
+        "url": "=https://res.cloudinary.com/ddlmwfeup/image/upload/fl_getinfo/{{ $json.public_id }}.jpg",
+        "options": {}
+      },
+      "id": "86ad5d45-ae0f-45e6-a738-b639c0c572af",
+      "name": "Cloudinary — Detect Focal Point",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3904,
+        896
+      ],
+      "notes": "Replace YOUR_CLOUD_NAME with your actual Cloudinary cloud name"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// FRAMED — Smart Text Placement\n// Uses Cloudinary focal point to pick the best corner\n// ============================================================\n\nconst cloudinaryInfo = $input.first().json;\n\nlet corner = 'bottom-right'; // safe default\nlet bannerbearGravity = 'SouthEast';\nlet xOffset = 48;\nlet yOffset = 48;\n\ntry {\n  const cropRegion = cloudinaryInfo.g_auto_info?.crop_region;\n  \n  if (cropRegion) {\n    // Calculate center of the safe (face-avoided) zone\n    const safeCenterX = (cropRegion.x1 + cropRegion.x2) / 2;\n    const safeCenterY = (cropRegion.y1 + cropRegion.y2) / 2;\n    \n    const safeZoneWidth = cropRegion.x2 - cropRegion.x1;\n    const safeZoneHeight = cropRegion.y2 - cropRegion.y1;\n    \n    // Only use detection if safe zone is large enough to matter\n    if (safeZoneWidth >= 0.2 && safeZoneHeight >= 0.15) {\n      if (safeCenterX <= 0.5 && safeCenterY >= 0.5) {\n        corner = 'bottom-left';\n        bannerbearGravity = 'SouthWest';\n      } else if (safeCenterX > 0.5 && safeCenterY >= 0.5) {\n        corner = 'bottom-right';\n        bannerbearGravity = 'SouthEast';\n      } else if (safeCenterX <= 0.5 && safeCenterY < 0.5) {\n        corner = 'top-left';\n        bannerbearGravity = 'NorthWest';\n      } else {\n        corner = 'top-right';\n        bannerbearGravity = 'NorthEast';\n      }\n    }\n  }\n} catch (e) {\n  // Fallback to bottom-right if detection fails\n  corner = 'bottom-right';\n  bannerbearGravity = 'SouthEast';\n}\n\nreturn [{\n  json: {\n    corner,\n    bannerbearGravity,\n    xOffset,\n    yOffset\n  }\n}];"
+      },
+      "id": "11c4c7ef-3498-41c3-820c-9951ad07ae00",
+      "name": "Calculate Text Corner",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4128,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You write punchy, factual anime news headlines for a daily wallpaper Telegram channel called Framed.\n\nRules:\n- Max 120 characters total\n- Use abbreviations: S2, S3, Ep. 9, K for thousands (164K)\n- News-headline tone: factual but energetic. Like a sports ticker.\n- Examples: \"JJK S3 Ep. 9 just aired — 164K fans on AniList\" | \"Solo Leveling S2 confirmed — 312K members\" | \"Oshi no Ko S2 airing now — 89K fans\"\n- Never use: \"Watch it now\", \"just dropped\", \"taking the world by storm\", \"don't miss\"\n- Output ONLY the caption text. No quotes, no labels, no extra text.",
+              "role": "system"
+            },
+            {
+              "content": "={{ $json.captionPrompt }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "658304ea-58b2-4908-9858-38dde92b044b",
+      "name": "OpenAI — Generate Caption",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [
+        4576,
+        896
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "uGJTm7rByVrIiCUx",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const story = $('Extract TMDB Image').first().json;\nconst uploadResult = $('Cloudinary — Upload Image').first().json;\nconst publicId = uploadResult.public_id;\nconst caption = $('Sanitize Caption').first().json.caption || '';\nconst episodeList = story.episodeList;\nconst gravity = $('Calculate Text Corner').first().json.bannerbearGravity || 'SouthEast';\nconst xOffset = $('Calculate Text Corner').first().json.xOffset || 48;\nconst yOffset = $('Calculate Text Corner').first().json.yOffset || 48;\n\nconst activeSizes = $('Fetch Active Sizes').all()\n  .map(item => item.json)\n  .filter(row => row.active === 'active');\n\nfunction cloudinaryUrl(width, height) {\n  return `https://res.cloudinary.com/ddlmwfeup/image/upload/w_${width},h_${height},c_fill,g_auto,e_sharpen:150,e_improve,q_95,f_jpg/${publicId}.jpg`;\n}\n\nconst results = [];\n\nfor (const size of activeSizes) {\n  results.push({\n    json: {\n      templateId: size.templateId,\n      sizeName: size.sizeName,\n      variant: 'tagged',\n      width: parseInt(size.width),\n      height: parseInt(size.height),\n      imageUrl: cloudinaryUrl(parseInt(size.width), parseInt(size.height)),\n      caption,\n      episodeList,\n      gravity,\n      xOffset,\n      yOffset\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "6e48b9d6-1238-4d14-b552-d9bae682ce12",
+      "name": "Build Bannerbear Payloads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5376,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.bannerbear.com/v2/images",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "=json",
+        "specifyBody": "json",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "={{ JSON.stringify({\"template\": $json.templateId, \"width\": $json.width, \"height\": $json.height, \"modifications\": $json.modifications}) }}",
+        "options": {}
+      },
+      "id": "a7ce3c33-a12a-4038-81f1-28e9ac3d9af4",
+      "name": "Bannerbear — Render Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        5824,
+        896
+      ],
+      "executeOnce": false,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "3n8dDrOdLFuipy3R",
+          "name": "Bannerbear API"
+        }
+      },
+      "notes": "Replace YOUR_BANNERBEAR_API_KEY with your actual key"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "id": "5a54f59c-c7f9-4213-a8cd-887ca16e47e2",
+      "name": "Wait 15 Seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        6048,
+        896
+      ],
+      "webhookId": "909a012c-cfac-4800-bc59-a1940aca02fc"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.bannerbear.com/v2/images/{{ $('Bannerbear — Render Image').item.json.uid }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {}
+      },
+      "id": "544e2896-effe-4a8b-8209-9c6355b63296",
+      "name": "Bannerbear — Fetch Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        6272,
+        896
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "3n8dDrOdLFuipy3R",
+          "name": "Bannerbear API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.image_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "5c1d266a-54d6-4191-8f92-c61944e16b31",
+      "name": "Download Final Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        6496,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const story = $('Resolve Final Story').first().json;\n\nreturn [{\n  json: {\n    animeId: story.finalStory?.animeId || story.finalStory?.title?.replace(/\\s+/g, '_').toLowerCase(),\n    title: story.finalStory?.title,\n    type: story.storyType,\n    date: new Date().toISOString().split('T')[0],\n    storyId: (story.finalStory?.title?.replace(/\\s+/g, '_').toLowerCase() || '') + '_' + new Date().toISOString().split('T')[0]\n  }\n}];"
+      },
+      "id": "084e4f2b-e8e5-4437-be25-852c4d4be9d4",
+      "name": "Mark Story as Delivered",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7392,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $json;\n\nconst modifications = [\n  { name: \"background_image\", image_url: input.imageUrl },\n  { name: \"caption_text\", text: input.caption },\n  { name: \"episode_list\", text: input.episodeList },\n  { name: \"caption_box\", anchor: input.gravity, x_offset: input.xOffset, y_offset: input.yOffset }\n];\n\nreturn {\n  templateId: input.templateId,\n  sizeName: input.sizeName,\n  width: input.width,\n  height: input.height,\n  imageUrl: input.imageUrl,\n  caption: input.caption,\n  episodeList: input.episodeList,\n  gravity: input.gravity,\n  xOffset: input.xOffset,\n  yOffset: input.yOffset,\n  modifications: modifications\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5600,
+        896
+      ],
+      "id": "3ed73bba-9bde-45e3-9239-940e6d97e1c6",
+      "name": "Build Bannerbear Request"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        992,
+        896
+      ],
+      "id": "a8d4f92d-8f6f-406c-8da5-d15a89812f9a",
+      "name": "Merge"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        992,
+        1280
+      ],
+      "id": "30018db9-860f-4c4f-85e8-d705cdbe430e",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1440,
+        1280
+      ],
+      "id": "a6d058e6-f045-4061-a687-1204c197ec3c",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graphql.anilist.co",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query ($weekStart: Int, $weekEnd: Int) { Page(page: 2, perPage: 50) { airingSchedules(airingAt_greater: $weekStart, airingAt_lesser: $weekEnd, sort: TIME) { airingAt episode media { id title { romaji english } popularity coverImage { medium extraLarge } bannerImage } } } }\",\n  \"variables\": {\n    \"weekStart\": {{ $('Prepare Date Variables').first().json.unixNow }},\n    \"weekEnd\": {{ $('Prepare Date Variables').first().json.unixWeekEnd }}\n  }\n}",
+        "options": {}
+      },
+      "id": "e4075f56-f67f-45cb-9ed1-83fac1c0244e",
+      "name": "AniList — This Week's Airing Page 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        768,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graphql.anilist.co",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query ($weekStart: Int, $weekEnd: Int) { Page(perPage: 100) { airingSchedules(airingAt_greater: $weekStart, airingAt_lesser: $weekEnd, sort: TIME) { airingAt episode media { id title { romaji english } popularity coverImage { medium extraLarge } bannerImage } } } }\",\n  \"variables\": {\n    \"weekStart\": {{ $('Prepare Date Variables').first().json.unixNow }},\n    \"weekEnd\": {{ $('Prepare Date Variables').first().json.unixWeekEnd }}\n  }\n}",
+        "options": {}
+      },
+      "id": "49039407-8798-479f-ae79-a3083293153e",
+      "name": "AniList — This Week's Airing Page 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        768,
+        1184
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1216,
+        1472
+      ],
+      "id": "3064453c-35a5-422c-b43c-bd51ed63c14a",
+      "name": "Merge4"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        992,
+        1664
+      ],
+      "id": "e4fb1c75-45df-4c9b-a632-136db376e531",
+      "name": "Merge3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graphql.anilist.co",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query ($weekStart: Int, $weekEnd: Int) { Page(page: 3, perPage: 50) { airingSchedules(airingAt_greater: $weekStart, airingAt_lesser: $weekEnd, sort: TIME) { airingAt episode media { id title { romaji english } popularity coverImage { medium extraLarge } bannerImage } } } }\",\n  \"variables\": {\n    \"weekStart\": {{ $('Prepare Date Variables').first().json.unixNow }},\n    \"weekEnd\": {{ $('Prepare Date Variables').first().json.unixWeekEnd }}\n  }\n}",
+        "options": {}
+      },
+      "id": "97f7389e-2e9d-4080-a2d4-8dd7809f8f86",
+      "name": "AniList — This Week's Airing Page 3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        768,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Story Log",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1664,
+        1216
+      ],
+      "id": "6a3f169b-fd16-4220-9270-51570f634f47",
+      "name": "Check Story History",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Story Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "animeId": "={{ $('Mark Story as Delivered').first().json.animeId }}",
+            "title": "={{ $('Mark Story as Delivered').first().json.title }}",
+            "type": "={{ $('Mark Story as Delivered').first().json.type }}",
+            "date": "={{ $('Mark Story as Delivered').first().json.date }}",
+            "storyId": "={{ $('Mark Story as Delivered').first().json.storyId }}",
+            "backdropPath": "={{ $('Select Best Backdrop').first().json.finalStory.backdropPath }}",
+            "season": "={{ $('Select Best Backdrop').first().json.finalStory.season || '' }}",
+            "episode": "={{ $('Resolve Final Story').first().json.headlineForCaption || '' }}",
+            "genres": "={{ ($('Select Best Backdrop').first().json.finalStory.genres || []).join(', ') }}",
+            "tags": "={{ $('Mark Story as Delivered').first().json.type }}",
+            "caption": "={{ $('Sanitize Caption').first().json.caption }}",
+            "tmdbId": "={{ $('Select Best Backdrop').first().json.finalStory.tmdbId || '' }}",
+            "cleanWallpaperLink": "",
+            "taggedWallpaperLink": "={{ $('Save Wallpaper Desktop_FHD').first().json.webViewLink || '' }}",
+            "showFolder": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "animeId",
+              "displayName": "animeId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "storyId",
+              "displayName": "storyId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "season",
+              "displayName": "season",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "episode",
+              "displayName": "episode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "genres",
+              "displayName": "genres",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caption",
+              "displayName": "caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "backdropPath",
+              "displayName": "backdropPath",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tmdbId",
+              "displayName": "tmdbId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cleanWallpaperLink",
+              "displayName": "cleanWallpaperLink",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "taggedWallpaperLink",
+              "displayName": "taggedWallpaperLink",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "showFolder",
+              "displayName": "showFolder",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        7616,
+        -160
+      ],
+      "id": "84e1a4aa-1355-49f0-b32b-76e822465663",
+      "name": "Log Story to Sheet",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Archive",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $('Mark Story as Delivered').first().json.date }}",
+            "category": "anime",
+            "title": "={{ $('Mark Story as Delivered').first().json.title }}",
+            "caption": "={{ $('Sanitize Caption').first().json.caption }}",
+            "drive_file_id": "={{ $('Save Wallpaper Desktop_FHD').first().json.id || '' }}",
+            "drive_url": "={{ $('Save Wallpaper Desktop_FHD').first().json.webViewLink || '' }}",
+            "telegram_file_id": "={{ $('Post Desktop_FHD').first().json.result?.photo?.[0]?.file_id || '' }}",
+            "telegram_url": "={{ $('Post Desktop_FHD').first().json.result?.photo?.[0]?.file_id ? '' : $('Save Wallpaper Desktop_FHD').first().json.webViewLink || '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caption",
+              "displayName": "caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "drive_file_id",
+              "displayName": "drive_file_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "drive_url",
+              "displayName": "drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telegram_file_id",
+              "displayName": "telegram_file_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telegram_url",
+              "displayName": "telegram_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        7856,
+        -336
+      ],
+      "id": "archive-append-node",
+      "name": "Append Archive Row",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.template_name }}",
+                    "rightValue": "Framed_Desktop_FHD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "63c9d884-bd6b-470c-9ca8-b0e352b02006"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e5f60980-cf06-4dac-bd4b-88f3684b9539",
+                    "leftValue": "={{ $json.template_name }}",
+                    "rightValue": "Framed_Phone_Portrait",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "09304631-7cfa-40c3-b76b-21d64888d80a",
+                    "leftValue": "={{ $json.template_name }}",
+                    "rightValue": "Framed_Desktop_QHD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "496a4cdb-7b60-4c1a-af18-4f5e5e55b000",
+                    "leftValue": "={{ $json.template_name }}",
+                    "rightValue": "Framed_Desktop_4K",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2a48c2da-a04b-4dd1-b05d-7316c53039b5",
+                    "leftValue": "={{ $json.template_name }}",
+                    "rightValue": "Framed_Ultrawide",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ed612dd2-a7cb-4d8a-95c4-44c2978df95c",
+                    "leftValue": "={{ $json.template_name }}",
+                    "rightValue": "Framed_Tablet_portrait",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        6720,
+        832
+      ],
+      "id": "015542a3-22bd-4b69-a2dd-873fe8d8ffe3",
+      "name": "Route by Size"
+    },
+    {
+      "parameters": {
+        "jsCode": "// If sheet is empty (first run), return empty array so pipeline continues\nlet historyRows = [];\n\ntry {\n  const items = $input.all();\n  historyRows = items.map(i => i.json).filter(r => r.animeId);\n} catch(e) {\n  historyRows = [];\n}\n\nreturn [{ json: { historyRows } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        1216
+      ],
+      "id": "f90736b3-d01a-454a-b1f6-3f288c0f05f5",
+      "name": "Pass History to Selection"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2112,
+        1280
+      ],
+      "id": "c5a26f56-0e84-4d2b-b314-effc978b6d53",
+      "name": "Merge5"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.themoviedb.org/3/search/tv?query={{  encodeURIComponent(($json.finalStory.title || '').replace(/[【】「」\\[\\]]/g, '').replace(/\\s*\\([^)]*\\)/g, '').replace(/\\s*(Season|Part|Cour)\\s+\\d+\\w*/gi, '').replace(/\\s+S\\d+\\s*$/i, '').replace(/\\s*:\\s*[^:]+$/i, '').trim() || $json.finalStory.title || '') }}&page=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2784,
+        1280
+      ],
+      "id": "53fecb6f-30cf-4d5b-9945-085e2c902e99",
+      "name": "Fetch TMDB Image",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "AIEaf2DCnDYUNviy",
+          "name": "TMDB API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const story = $('Resolve Final Story').first().json;\nconst tmdbData = $input.first().json;\nlet imageUrl = story.finalStory.image;\nlet tmdbId = null; let tmdbFound = false;\nif (tmdbData.results && tmdbData.results.length > 0) {\n  const match = tmdbData.results.find(r => r.backdrop_path) || tmdbData.results[0];\n  tmdbId = match.id;\n  if (match.backdrop_path) { imageUrl = 'https://image.tmdb.org/t/p/original' + match.backdrop_path; tmdbFound = true; }\n  else if (match.poster_path) { imageUrl = 'https://image.tmdb.org/t/p/original' + match.poster_path; tmdbFound = true; }\n}\nreturn [{ json: { ...story, finalStory: { ...story.finalStory, image: imageUrl, tmdbFound, tmdbId }, episodeList: story.episodeList } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3008,
+        1280
+      ],
+      "id": "45e25292-3e1a-4091-a2db-3671f75def8f",
+      "name": "Extract TMDB Image"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}_{{ $('Select Best Backdrop').first().json.finalStory.title.replace(/\\s+/g, '_') }}_{{ $json.template_name }}.jpg",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jS5D60TuL5NogTx1KkGU7lMG_WAz8DMf",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "6ce79c7b-d93e-4f11-af46-90b0932b46e6",
+      "name": "Save Wallpaper Desktop_FHD",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        6944,
+        -160
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Replace REPLACE_WITH_YOUR_GOOGLE_DRIVE_FOLDER_ID with your actual folder ID"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}_{{ $('Select Best Backdrop').first().json.finalStory.title.replace(/\\s+/g, '_') }}_{{ $json.template_name }}.jpg",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jS5D60TuL5NogTx1KkGU7lMG_WAz8DMf",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "f1125ede-d059-4623-8246-bb65f32bd773",
+      "name": "Save Wallpaper Phone_Portrait",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        6944,
+        224
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Replace REPLACE_WITH_YOUR_GOOGLE_DRIVE_FOLDER_ID with your actual folder ID"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}_{{ $('Select Best Backdrop').first().json.finalStory.title.replace(/\\s+/g, '_') }}_{{ $json.template_name }}.jpg",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jS5D60TuL5NogTx1KkGU7lMG_WAz8DMf",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "144fae53-5dff-4c37-98ac-30cb1127c053",
+      "name": "Save Wallpaper Desktop_QHD",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        6944,
+        608
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Replace REPLACE_WITH_YOUR_GOOGLE_DRIVE_FOLDER_ID with your actual folder ID"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "=@framed_daily",
+        "file": "={{ $('Bannerbear — Fetch Result').item.json.image_url }}",
+        "additionalFields": {
+          "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
+        }
+      },
+      "id": "b0c4d0ce-2e1d-4a71-ae51-3db950781b41",
+      "name": "Post Daily_Preview",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        7168,
+        -352
+      ],
+      "webhookId": "409ea65f-1c94-42dd-ab7a-ebc24ee0aea8",
+      "credentials": {
+        "telegramApi": {
+          "id": "igOtfzQcxUeC5OwO",
+          "name": "Telegram account"
+        }
+      },
+      "disabled": true,
+      "notes": "Replace @YOUR_TELEGRAM_CHANNEL with your actual channel username"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "=-1003626842953",
+        "file": "={{ $('Bannerbear — Fetch Result').item.json.image_url }}",
+        "additionalFields": {
+          "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
+        }
+      },
+      "id": "fd728d8f-9803-4fe2-8024-4927c6d40d78",
+      "name": "Post Desktop_FHD",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        7168,
+        -160
+      ],
+      "webhookId": "409ea65f-1c94-42dd-ab7a-ebc24ee0aea8",
+      "credentials": {
+        "telegramApi": {
+          "id": "igOtfzQcxUeC5OwO",
+          "name": "Telegram account"
+        }
+      },
+      "notes": "Replace @YOUR_TELEGRAM_CHANNEL with your actual channel username"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "=-1003760553558",
+        "file": "={{ $('Bannerbear — Fetch Result').item.json.image_url }}",
+        "additionalFields": {
+          "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
+        }
+      },
+      "id": "329bf1aa-18a8-455f-b455-4484e410d5ad",
+      "name": "Post Desktop_QHD",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        7168,
+        608
+      ],
+      "webhookId": "409ea65f-1c94-42dd-ab7a-ebc24ee0aea8",
+      "credentials": {
+        "telegramApi": {
+          "id": "igOtfzQcxUeC5OwO",
+          "name": "Telegram account"
+        }
+      },
+      "notes": "Replace @YOUR_TELEGRAM_CHANNEL with your actual channel username"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "=-1003740399296",
+        "file": "={{ $('Bannerbear — Fetch Result').item.json.image_url }}",
+        "additionalFields": {
+          "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
+        }
+      },
+      "id": "59cc0523-b43f-4c55-ba93-fda093904dba",
+      "name": "Post Phone_Portrait",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        7168,
+        224
+      ],
+      "webhookId": "409ea65f-1c94-42dd-ab7a-ebc24ee0aea8",
+      "credentials": {
+        "telegramApi": {
+          "id": "igOtfzQcxUeC5OwO",
+          "name": "Telegram account"
+        }
+      },
+      "notes": "Replace @YOUR_TELEGRAM_CHANNEL with your actual channel username"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "list",
+          "cachedResultName": "Framed Story Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 495589417,
+          "mode": "list",
+          "cachedResultName": "Config",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM/edit#gid=495589417"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        5152,
+        896
+      ],
+      "id": "d99a60e7-8d94-47b8-ad88-9d250542f134",
+      "name": "Fetch Active Sizes",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://res.cloudinary.com/ddlmwfeup/image/upload/w_1920,h_1080,c_fill,g_auto,e_sharpen:150,e_improve,q_95,f_jpg/{{ $('Cloudinary — Upload Image').first().json.public_id }}.jpg",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3904,
+        1376
+      ],
+      "id": "e8ba16bf-781a-4d50-8206-0cde084620bc",
+      "name": "Download Clean Image"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}_{{ $('Select Best Backdrop').first().json.finalStory.title.replace(/\\s+/g, '_') }}_clean.jpg",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "15VMaVvGgHYIu19WrlEK6t49bnAauRAZW",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "d5f97e17-78c0-482d-bb48-83ecf80b96cc",
+      "name": "Save Wallpaper Clean",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4128,
+        1376
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Replace REPLACE_WITH_YOUR_GOOGLE_DRIVE_FOLDER_ID with your actual folder ID"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}_{{ $('Select Best Backdrop').first().json.finalStory.title.replace(/\\s+/g, '_') }}_{{ $json.template_name }}.jpg",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jS5D60TuL5NogTx1KkGU7lMG_WAz8DMf",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "58ad11ec-87c1-48f4-bbc4-1bc1560967c0",
+      "name": "Save Wallpaper Desktop_4K",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        6944,
+        992
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Replace REPLACE_WITH_YOUR_GOOGLE_DRIVE_FOLDER_ID with your actual folder ID"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}_{{ $('Select Best Backdrop').first().json.finalStory.title.replace(/\\s+/g, '_') }}_{{ $json.template_name }}.jpg",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jS5D60TuL5NogTx1KkGU7lMG_WAz8DMf",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "a2e7005e-7a60-4f06-aca4-bf7b6ea8d0aa",
+      "name": "Save Wallpaper Ultrawide",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        6944,
+        1376
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Replace REPLACE_WITH_YOUR_GOOGLE_DRIVE_FOLDER_ID with your actual folder ID"
+    },
+    {
+      "parameters": {
+        "name": "={{ new Date().toISOString().split('T')[0] }}_{{ $('Select Best Backdrop').first().json.finalStory.title.replace(/\\s+/g, '_') }}_{{ $json.template_name }}.jpg",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jS5D60TuL5NogTx1KkGU7lMG_WAz8DMf",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "4c91ccd7-0e50-485a-bd9d-b71bc28b6021",
+      "name": "Save Wallpaper Tablet_portrait",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        6944,
+        1760
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Replace REPLACE_WITH_YOUR_GOOGLE_DRIVE_FOLDER_ID with your actual folder ID"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "=@framed_4k",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
+        }
+      },
+      "id": "82c939be-a340-4f1a-802d-de7028b3b80c",
+      "name": "Post Desktop_4K",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        7168,
+        992
+      ],
+      "webhookId": "409ea65f-1c94-42dd-ab7a-ebc24ee0aea8",
+      "credentials": {
+        "telegramApi": {
+          "id": "igOtfzQcxUeC5OwO",
+          "name": "Telegram account"
+        }
+      },
+      "notes": "Replace @YOUR_TELEGRAM_CHANNEL with your actual channel username"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "=@framed_ultrawide",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
+        }
+      },
+      "id": "da8d17d0-21e1-4c96-823b-5d7f592a0fb2",
+      "name": "Post Ultrawide",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        7168,
+        1376
+      ],
+      "webhookId": "409ea65f-1c94-42dd-ab7a-ebc24ee0aea8",
+      "credentials": {
+        "telegramApi": {
+          "id": "igOtfzQcxUeC5OwO",
+          "name": "Telegram account"
+        }
+      },
+      "notes": "Replace @YOUR_TELEGRAM_CHANNEL with your actual channel username"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "=@framed_tablet",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
+        }
+      },
+      "id": "1e94b22f-be97-4615-8dd7-71f04d3d817f",
+      "name": "Post Tablet_portrait",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        7168,
+        1760
+      ],
+      "webhookId": "409ea65f-1c94-42dd-ab7a-ebc24ee0aea8",
+      "credentials": {
+        "telegramApi": {
+          "id": "igOtfzQcxUeC5OwO",
+          "name": "Telegram account"
+        }
+      },
+      "notes": "Replace @YOUR_TELEGRAM_CHANNEL with your actual channel username"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.themoviedb.org/3/tv/{{ $json.finalStory.tmdbId }}/images",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_image_language",
+              "value": "null"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "977b83de-75c2-4ea7-823d-3bc3effb5f43",
+      "name": "Fetch TMDB Backdrops",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3232,
+        1280
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "AIEaf2DCnDYUNviy",
+          "name": "TMDB API Key"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const ed = $('Extract TMDB Image').first().json;\nlet imageUrl = ed.finalStory.image; let backdropPath = null; let used = [];\ntry { used = $('Check Story History').all().map(i=>i.json.backdropPath||i.json['Backdrop Path']||'').filter(Boolean); } catch(e) {}\ntry {\n  const imgs = $input.first().json;\n  if (imgs.backdrops && imgs.backdrops.length > 0) {\n    const sorted = imgs.backdrops.filter(b=>b.width>b.height).sort((a,b)=>(b.vote_average||0)-(a.vote_average||0));\n    const chosen = sorted.filter(b=>!used.includes(b.file_path))[0] || sorted[0];\n    if (chosen) { imageUrl='https://image.tmdb.org/t/p/original'+chosen.file_path; backdropPath=chosen.file_path; }\n  }\n} catch(e) {}\nif (!backdropPath && imageUrl) {\n  imageUrl = 'https://res.cloudinary.com/ddlmwfeup/image/fetch/c_fill,g_auto:subject,ar_16:9/' + encodeURIComponent(imageUrl);\n}\nif (!backdropPath && ed.finalStory.tmdbFound) { const m=imageUrl.match(/\\/original(\\/[^?]+)/); if(m) backdropPath=m[1]; }\nreturn [{ json: { ...ed, finalStory: { ...ed.finalStory, image: imageUrl, backdropPath } } }];"
+      },
+      "id": "b6469d13-4a3b-4220-aad9-c07664cb26f9",
+      "name": "Select Best Backdrop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3456,
+        1280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const openaiOut = $input.first().json;\nconst story = $('Select Best Backdrop').first().json;\n\nlet caption = openaiOut?.message?.content ||\n              openaiOut?.choices?.[0]?.message?.content || '';\ncaption = caption.trim().replace(/^[\"']+|[\"']+$/g, '');\n\nconst banned = [\n  'does not contain', 'cannot generate', 'unable to', \"i can't\", 'i cannot',\n  'not enough', 'please provide', 'no facts', 'this request',\n  'watch it now', 'must-watch', \"don't miss\", 'just dropped',\n  'taking the world by storm', 'check it out'\n];\nconst isInvalid = !caption || caption.length < 5 || caption.length > 150 ||\n  banned.some(p => caption.toLowerCase().includes(p));\n\nif (isInvalid) {\n  const title = story?.finalStory?.title || 'Anime';\n  const pop = story?.finalStory?.popularity;\n  caption = pop && pop > 500000\n    ? title + ' — ' + Math.round(pop / 1000) + 'K members on AniList'\n    : title + ' — new episode this week';\n  const words = caption.split(' ');\n  if (words.length > 12) caption = words.slice(0, 12).join(' ');\n}\n\nreturn [{ json: { ...openaiOut, caption } }];"
+      },
+      "id": "7c3bfbba-2b0a-494a-b870-cac98c68d4dd",
+      "name": "Sanitize Caption",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4928,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const story = $('Select Best Backdrop').first().json.finalStory;\nconst headline = $('Resolve Final Story').first().json.headlineForCaption;\n\nconst title = story.title || 'Anime';\nconst type = story.type || 'TV';\nconst members = story.popularity ? story.popularity + ' members on AniList' : 'currently airing';\nconst keyFact = headline || (title + ' is currently airing');\n\nconst captionPrompt = 'Title: ' + title + '\\nShow type: ' + type + '\\nKey fact: ' + keyFact + '\\nAniList members: ' + members;\n\nreturn [{ json: { ...$input.first().json, captionPrompt } }];"
+      },
+      "id": "build-caption-prompt-001",
+      "name": "Build Caption Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4352,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "c43fc3eb-50f1-464b-97d0-993e66f1190e",
+      "name": "Update Description Clean",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4352,
+        1376
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "808e3957-10c1-41f3-8deb-b041188d1741",
+      "name": "Update Description FHD",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        7168,
+        32
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "7c8a37fd-bfdc-4ba0-8461-2e343c8560e0",
+      "name": "Update Description QHD",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        7168,
+        800
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "05349fbc-372f-4e03-bb11-e5e6c66e8073",
+      "name": "Update Description 4K",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        7168,
+        1184
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "f9147e40-e60f-49d9-af41-7d81aa0eb517",
+      "name": "Update Description Ultrawide",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        7168,
+        1568
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "d1627681-9b29-4085-a359-63224f4a85cd",
+      "name": "Update Description Phone",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        7168,
+        416
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "aec6962c-70ea-4381-931e-7c96e519f413",
+      "name": "Update Description Tablet",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        7168,
+        1952
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2SXkHFwcI5FpICsz",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Subscribers",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "dm-001-get-subscribers",
+      "name": "Get Active Subscribers",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        7840,
+        -160
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const subscribers = $input.all().map(item => item.json);\nconst imageUrl = $('Bannerbear — Fetch Result').first().json.image_url;\nconst headline = $('Resolve Final Story').first().json.headlineForCaption;\nconst episodeList = $('Resolve Final Story').first().json.episodeList;\n\nfunction normalize(value) {\n  return String(value ?? '').trim().toLowerCase();\n}\n\nfunction isTruthy(value) {\n  return ['true', '1', 'yes', 'y', 'active'].includes(normalize(value));\n}\n\nconst eligible = subscribers.filter(row => {\n  const state = normalize(row.subscription_state);\n  const category = normalize(row.category);\n  const tier = normalize(row.tier);\n  const active = isTruthy(row.active);\n\n  return active && state === 'active' && (category === 'anime' || category === 'all') && tier !== 'free';\n});\n\nreturn eligible.map(subscriber => {\n  const tier = normalize(subscriber.tier);\n  return {\n    json: {\n      chat_id: subscriber.chat_id,\n      tier: subscriber.tier,\n      category: subscriber.category,\n      resolution_mode: tier === 'framed+' ? 'all_sizes' : 'fhd_4k',\n      image_url: imageUrl,\n      caption: `${headline}\\n\\n📺 This week's episodes:\\n${episodeList}\\n\\n🖼 Your daily wallpaper — tap & hold to save!\\n\\nThanks for subscribing to Framed 🎌`\n    }\n  };\n});"
+      },
+      "id": "dm-002-build-dm-payloads",
+      "name": "Build DM Payloads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8064,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "={{ $json.chat_id }}",
+        "file": "={{ $json.image_url }}",
+        "additionalFields": {
+          "caption": "={{ $json.caption }}"
+        }
+      },
+      "id": "dm-003-send-wallpaper-dm",
+      "name": "Send Wallpaper DM",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        8304,
+        -160
+      ],
+      "webhookId": "5b5ca1ee-f203-4cbd-8a49-b3ed4276131b",
+      "credentials": {
+        "telegramApi": {
+          "id": "igOtfzQcxUeC5OwO",
+          "name": "Telegram account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(item => item.json);\n\nfunction normalize(value) {\n  return String(value ?? '').trim().toLowerCase();\n}\n\nreturn items.map(item => {\n  const errorText = String(item.error?.message ?? item.error ?? '').trim();\n  const isChatNotFound = /chat_not_found/i.test(errorText);\n\n  return {\n    json: {\n      sent_at: new Date().toISOString(),\n      chat_id: item.chat_id || '',\n      tier: item.tier || '',\n      category: item.category || '',\n      resolution_mode: item.resolution_mode || '',\n      status: errorText ? 'failed' : 'success',\n      error: errorText,\n      inactive: isChatNotFound ? 'true' : 'false',\n      subscriber_active: isChatNotFound ? 'false' : ''\n    }\n  };\n});"
+      },
+      "id": "dm-004-build-delivery-log",
+      "name": "Build Delivery Log Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8544,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "delivery_log",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "dm-005-log-delivery",
+      "name": "Log Delivery Results",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        8784,
+        -160
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(item => item.json);\n\nreturn items.map(item => ({\n  json: {\n    chat_id: item.chat_id || '',\n    active: item.subscriber_active || '',\n    inactive_reason: item.inactive === 'true' ? 'telegram_chat_not_found' : '',\n    updated_at: new Date().toISOString()\n  }\n}));"
+      },
+      "id": "dm-006-build-inactive-updates",
+      "name": "Build Inactive Subscriber Updates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8784,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "subscribers",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "dm-007-update-subscriber-status",
+      "name": "Mark Subscriber Inactive",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        9024,
+        176
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(item => item.json);\nreturn items.map(item => ({\n  json: {\n    sent_at: new Date().toISOString(),\n    chat_id: item.chat_id || '',\n    tier: item.tier || '',\n    category: item.category || '',\n    resolution_mode: item.resolution_mode || '',\n    status: item.error ? 'failure' : 'success',\n    error: item.error ? String(item.error) : ''\n  }\n}));"
+      },
+      "id": "dm-004-build-delivery-log",
+      "name": "Build Delivery Log Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8544,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "delivery_log",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "dm-005-log-delivery",
+      "name": "Log Delivery Results",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        8784,
+        -160
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Every Day at 7AM": [
+      {
+        "json": {
+          "timestamp": "2026-03-13T07:00:00.004-04:00",
+          "Readable date": "March 13th 2026, 7:00:00 am",
+          "Readable time": "7:00:00 am",
+          "Day of week": "Friday",
+          "Year": "2026",
+          "Month": "March",
+          "Day of month": "13",
+          "Hour": "07",
+          "Minute": "00",
+          "Second": "00",
+          "Timezone": "America/Toronto (UTC-04:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Every Day at 7AM": {
+      "main": [
+        [
+          {
+            "node": "Fetch ANN News RSS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Date Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Date Variables": {
+      "main": [
+        [
+          {
+            "node": "AniList — Today's Anniversaries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AniList — This Week's Airing Page 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AniList — Current Trending",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AniList — This Week's Airing Page 2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AniList — This Week's Airing Page 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch ANN News RSS": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AniList — Today's Anniversaries": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Story Selection Logic": {
+      "main": [
+        [
+          {
+            "node": "Resolve Final Story",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AniList — Check News Popularity": {
+      "main": [
+        []
+      ]
+    },
+    "Resolve Final Story": {
+      "main": [
+        [
+          {
+            "node": "Fetch TMDB Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cloudinary — Upload Image": {
+      "main": [
+        [
+          {
+            "node": "Cloudinary — Detect Focal Point",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Download Clean Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cloudinary — Detect Focal Point": {
+      "main": [
+        [
+          {
+            "node": "Calculate Text Corner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Text Corner": {
+      "main": [
+        [
+          {
+            "node": "Build Caption Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI — Generate Caption": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Caption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Bannerbear Payloads": {
+      "main": [
+        [
+          {
+            "node": "Build Bannerbear Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bannerbear — Render Image": {
+      "main": [
+        [
+          {
+            "node": "Wait 15 Seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bannerbear — Fetch Result": {
+      "main": [
+        [
+          {
+            "node": "Download Final Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Final Image": {
+      "main": [
+        [
+          {
+            "node": "Route by Size",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AniList — Current Trending": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Build Bannerbear Request": {
+      "main": [
+        [
+          {
+            "node": "Bannerbear — Render Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Check Story History",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "AniList — This Week's Airing Page 1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AniList — This Week's Airing Page 2": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge4": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "AniList — This Week's Airing Page 3": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Check Story History": {
+      "main": [
+        [
+          {
+            "node": "Pass History to Selection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Story as Delivered": {
+      "main": [
+        [
+          {
+            "node": "Log Story to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Size": {
+      "main": [
+        [
+          {
+            "node": "Save Wallpaper Desktop_FHD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Wallpaper Phone_Portrait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Wallpaper Desktop_QHD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Wallpaper Desktop_4K",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Wallpaper Ultrawide",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Wallpaper Tablet_portrait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Story to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Get Active Subscribers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass History to Selection": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge5": {
+      "main": [
+        [
+          {
+            "node": "Story Selection Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch TMDB Image": {
+      "main": [
+        [
+          {
+            "node": "Extract TMDB Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract TMDB Image": {
+      "main": [
+        [
+          {
+            "node": "Fetch TMDB Backdrops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Wallpaper Desktop_FHD": {
+      "main": [
+        [
+          {
+            "node": "Post Daily_Preview",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post Desktop_FHD",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Description FHD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Wallpaper Phone_Portrait": {
+      "main": [
+        [
+          {
+            "node": "Post Phone_Portrait",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Description Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Wallpaper Desktop_QHD": {
+      "main": [
+        [
+          {
+            "node": "Post Desktop_QHD",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Description QHD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Daily_Preview": {
+      "main": [
+        []
+      ]
+    },
+    "Fetch Active Sizes": {
+      "main": [
+        [
+          {
+            "node": "Build Bannerbear Payloads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Clean Image": {
+      "main": [
+        [
+          {
+            "node": "Save Wallpaper Clean",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Wallpaper Desktop_4K": {
+      "main": [
+        [
+          {
+            "node": "Post Desktop_4K",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Description 4K",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Wallpaper Ultrawide": {
+      "main": [
+        [
+          {
+            "node": "Post Ultrawide",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Description Ultrawide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Wallpaper Tablet_portrait": {
+      "main": [
+        [
+          {
+            "node": "Post Tablet_portrait",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Description Tablet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch TMDB Backdrops": {
+      "main": [
+        [
+          {
+            "node": "Select Best Backdrop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Best Backdrop": {
+      "main": [
+        [
+          {
+            "node": "Cloudinary — Upload Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 15 Seconds": {
+      "main": [
+        [
+          {
+            "node": "Bannerbear — Fetch Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Caption": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Sizes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Caption Prompt": {
+      "main": [
+        [
+          {
+            "node": "OpenAI — Generate Caption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Wallpaper Clean": {
+      "main": [
+        [
+          {
+            "node": "Update Description Clean",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Subscribers": {
+      "main": [
+        [
+          {
+            "node": "Build DM Payloads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build DM Payloads": {
+      "main": [
+        [
+          {
+            "node": "Send Wallpaper DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Wallpaper DM": {
+      "main": [
+        [
+          {
+            "node": "Build Delivery Log Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Delivery Log Rows": {
+      "main": [
+        [
+          {
+            "node": "Log Delivery Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Delivery Results": {
+      "main": [
+        []
+      ]
+    },
+    "Post Desktop_FHD": {
+      "main": [
+        [
+          {
+            "node": "Mark Story as Delivered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "5e008179-8d2d-46d9-8149-ef3133b4b977",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c8aab13531ab8292e64d6e05fe3acfe0194295f299acec97bb0b46d1021c6119"
+  },
+  "id": "0qEMmLaonjcOVDGZ",
+  "tags": [
+    {
+      "updatedAt": "2026-04-03T13:05:17.846Z",
+      "createdAt": "2026-04-03T13:05:17.846Z",
+      "id": "h5phF1z6sSZpmU97",
+      "name": "framed"
+    }
+  ]
+}

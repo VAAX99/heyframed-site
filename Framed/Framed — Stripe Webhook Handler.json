@@ -1,0 +1,396 @@
+{
+  "name": "Framed — Stripe Webhook Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stripe-framed",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ],
+      "webhookId": "stripe-framed"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst eventType = body.type || '';\nconst eventData = body.data || {};\nreturn [{ json: { eventType, eventData, rawBody: body } }];"
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Parse Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.eventType }}",
+              "rightValue": "checkout.session.completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Is New Sub?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        688,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Stripe IDs reference:\n// Framed+  $9.99/mo — product: prod_U7HxvEqHDqrtHU  price: price_1T93Nw3JAJzIMzIJZXm9IiBA\n// Framed   $4.99/mo — product: prod_U7Hx74TfCMBAlR  price: price_1T93NZ3JAJzIMzIJya59R3Fj\n//\n// Tier detection priority:\n// 1. session.metadata.tier (\"framed+\" or \"framed\") — simplest, set when creating checkout session\n// 2. session.metadata.price_id compared against known price IDs\n// 3. Default: \"framed\"\n\nconst session = $json.eventData?.object || {};\n\nconst chatId = session.metadata?.telegram_chat_id || session.client_reference_id || '';\nconst username = session.metadata?.telegram_username || '';\nconst stripeCustomerId = session.customer || '';\n\n// Known price IDs\nconst FRAMED_PLUS_PRICE_ID = 'price_1T93Nw3JAJzIMzIJZXm9IiBA';\nconst FRAMED_PLUS_PRODUCT_ID = 'prod_U7HxvEqHDqrtHU';\n\nlet tier = 'framed';\n\nif (session.metadata?.tier) {\n  tier = session.metadata.tier.toLowerCase().trim();\n} else if (session.metadata?.price_id === FRAMED_PLUS_PRICE_ID) {\n  tier = 'framed+';\n} else if (session.metadata?.product_id === FRAMED_PLUS_PRODUCT_ID) {\n  tier = 'framed+';\n}\n\nconst today = new Date().toISOString().split('T')[0];\n\nif (!chatId) {\n  throw new Error('No telegram_chat_id in session metadata. Pass metadata.telegram_chat_id when creating the Stripe checkout session.');\n}\n\nreturn [{ json: {\n  chat_id: chatId,\n  username,\n  tier,\n  active: true,\n  stripe_customer_id: stripeCustomerId,\n  subscribed_date: today\n} }];"
+      },
+      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Extract New Subscriber",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Subscribers",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $json.chat_id }}",
+            "username": "={{ $json.username }}",
+            "tier": "={{ $json.tier }}",
+            "active": "={{ $json.active }}",
+            "stripe_customer_id": "={{ $json.stripe_customer_id }}",
+            "subscribed_date": "={{ $json.subscribed_date }}"
+          },
+          "matchingColumns": [
+            "chat_id"
+          ],
+          "schema": [
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": true,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "username",
+              "displayName": "username",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "tier",
+              "displayName": "tier",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "active",
+              "displayName": "active",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "stripe_customer_id",
+              "displayName": "stripe_customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "subscribed_date",
+              "displayName": "subscribed_date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0005-0005-0005-000000000005",
+      "name": "Upsert Subscriber",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        160
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.eventType }}",
+              "rightValue": "customer.subscription.deleted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0007-0007-0007-000000000007",
+      "name": "Is Cancellation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        912,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const subscription = $json.eventData?.object || {};\nconst stripeCustomerId = subscription.customer || '';\nif (!stripeCustomerId) throw new Error('No customer ID in subscription.deleted event');\nreturn [{ json: { stripe_customer_id: stripeCustomerId, active: false } }];"
+      },
+      "id": "a1b2c3d4-0008-0008-0008-000000000008",
+      "name": "Extract Cancellation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Subscribers",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "stripe_customer_id": "={{ $json.stripe_customer_id }}",
+            "active": "={{ $json.active }}"
+          },
+          "matchingColumns": [
+            "stripe_customer_id"
+          ],
+          "schema": [
+            {
+              "id": "stripe_customer_id",
+              "displayName": "stripe_customer_id",
+              "required": false,
+              "defaultMatch": true,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "active",
+              "displayName": "active",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0009-0009-0009-000000000009",
+      "name": "Set active=false",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1344,
+        448
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4XYaxeIOLcSZ6D1L",
+          "name": "Framed Google Sheets"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Event": {
+      "main": [
+        [
+          {
+            "node": "Is New Sub?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Sub?": {
+      "main": [
+        [
+          {
+            "node": "Extract New Subscriber",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Cancellation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract New Subscriber": {
+      "main": [
+        [
+          {
+            "node": "Upsert Subscriber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Subscriber": {
+      "main": [
+        []
+      ]
+    },
+    "Is Cancellation?": {
+      "main": [
+        [
+          {
+            "node": "Extract Cancellation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Extract Cancellation": {
+      "main": [
+        [
+          {
+            "node": "Set active=false",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "73e4576d-4f81-4e5c-9854-007591008b79",
+  "meta": {
+    "instanceId": "c8aab13531ab8292e64d6e05fe3acfe0194295f299acec97bb0b46d1021c6119"
+  },
+  "id": "ITEVAJkboWsaANvQ",
+  "tags": [
+    {
+      "updatedAt": "2026-04-03T13:05:17.846Z",
+      "createdAt": "2026-04-03T13:05:17.846Z",
+      "id": "h5phF1z6sSZpmU97",
+      "name": "framed"
+    }
+  ]
+}

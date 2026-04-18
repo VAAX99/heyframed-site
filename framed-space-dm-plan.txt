@@ -1,0 +1,8 @@
+Space Daily DM delivery work remains pending because the current workflow export in the workspace is the anime workflow, not the Space Daily workflow referenced by the issue.
+
+Next step:
+- Locate the Space Daily workflow export or live n8n definition for `uOdTPWr3VXmQW51B`
+- Add the subscriber DM branch after the public channel post
+- Filter subscribers by `subscription_state = active` and `category in {space, all}`
+- Send Telegram DMs to paid subscribers only
+- Log each delivery result to `delivery_log`

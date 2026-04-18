@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Framed - Subscription Admin Dashboard</title>
     <meta name="analytics-provider" content="Plausible">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://plausible.io; style-src 'self' 'unsafe-inline'; connect-src 'self' https://plausible.io https://sheets.googleapis.com; img-src 'self' data: https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" />
     <script defer data-domain="heyframed.com" src="https://plausible.io/js/script.js"></script>
     <style>
         * {
@@ -233,6 +234,8 @@
                             <th>Username</th>
                             <th>Chat ID</th>
                             <th>Tier</th>
+                            <th>Category</th>
+                            <th>Subscription State</th>
                             <th>Status</th>
                             <th>Subscribed Date</th>
                             <th>Stripe Customer</th>
@@ -240,7 +243,7 @@
                     </thead>
                     <tbody id="subscribersTableBody">
                         <tr>
-                            <td colspan="6" class="loading">Loading subscriber data...</td>
+                            <td colspan="8" class="loading">Loading subscriber data...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -269,7 +272,7 @@
         const CONFIG = {
             GOOGLE_SHEETS_API_KEY: 'YOUR_GOOGLE_SHEETS_API_KEY',
             SPREADSHEET_ID: '129SQgeuJTl9Mrncc7h2H8JbCIHFZrEW0ARDZXcvjCvM', // From the workflow analysis
-            SUBSCRIBERS_RANGE: 'Subscribers!A:F' // Assuming columns: username, chat_id, tier, active, subscribed_date, stripe_customer_id
+            SUBSCRIBERS_RANGE: 'Subscribers!A:H' // Columns: username, chat_id, tier, active, category, subscription_state, subscribed_date, stripe_customer_id
         };
 
         async function loadSubscriberData() {
@@ -284,7 +287,7 @@
             } catch (error) {
                 console.error('Error loading subscriber data:', error);
                 document.getElementById('subscribersTableBody').innerHTML = 
-                    `<tr><td colspan="6" class="error">Error loading data: ${error.message}</td></tr>`;
+                    `<tr><td colspan="8" class="error">Error loading data: ${error.message}</td></tr>`;
             }
         }
 
@@ -293,11 +296,11 @@
             return new Promise((resolve) => {
                 setTimeout(() => {
                     resolve([
-                        ['alice_anime', '123456789', 'framed+', true, '2024-01-15', 'cus_ABC123'],
-                        ['bob_otaku', '987654321', 'framed', true, '2024-02-20', 'cus_DEF456'],
-                        ['carol_fan', '456789123', 'framed+', true, '2024-03-10', 'cus_GHI789'],
-                        ['dave_weeb', '321654987', 'framed', false, '2024-01-05', 'cus_JKL012'],
-                        ['eve_manga', '789123456', 'framed+', true, '2024-03-25', 'cus_MNO345']
+                        ['alice_anime', '123456789', 'framed+', 'anime', 'active', true, '2024-01-15', 'cus_ABC123'],
+                        ['bob_otaku', '987654321', 'framed', 'anime', 'active', true, '2024-02-20', 'cus_DEF456'],
+                        ['carol_fan', '456789123', 'framed+', 'space', 'past_due', true, '2024-03-10', 'cus_GHI789'],
+                        ['dave_weeb', '321654987', 'framed', 'all', 'inactive', false, '2024-01-05', 'cus_JKL012'],
+                        ['eve_manga', '789123456', 'framed+', 'space', 'cancelled', true, '2024-03-25', 'cus_MNO345']
                     ]);
                 }, 1000);
             });
@@ -318,9 +321,9 @@
 
         function updateStats(data) {
             const totalSubs = data.length;
-            const activeSubs = data.filter(row => row[3] === true || row[3] === 'true').length;
-            const framedCount = data.filter(row => row[2] === 'framed' && (row[3] === true || row[3] === 'true')).length;
-            const framedPlusCount = data.filter(row => row[2] === 'framed+' && (row[3] === true || row[3] === 'true')).length;
+            const activeSubs = data.filter(row => row[5] === true || row[5] === 'true').length;
+            const framedCount = data.filter(row => row[2] === 'framed' && (row[5] === true || row[5] === 'true')).length;
+            const framedPlusCount = data.filter(row => row[2] === 'framed+' && (row[5] === true || row[5] === 'true')).length;
             
             const monthlyRevenue = (framedCount * 4.99) + (framedPlusCount * 9.99);
             
@@ -335,12 +338,12 @@
             const tbody = document.getElementById('subscribersTableBody');
             
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ccc;">No subscribers found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #ccc;">No subscribers found</td></tr>';
                 return;
             }
             
             tbody.innerHTML = data.map(row => {
-                const [username, chatId, tier, active, subscribedDate, stripeCustomer] = row;
+                const [username, chatId, tier, category, subscriptionState, active, subscribedDate, stripeCustomer] = row;
                 const isActive = active === true || active === 'true';
                 
                 return `
@@ -352,6 +355,8 @@
                                 ${tier}
                             </span>
                         </td>
+                        <td>${category}</td>
+                        <td>${subscriptionState}</td>
                         <td class="${isActive ? 'status-active' : 'status-inactive'}">
                             ${isActive ? '✓ Active' : '✗ Inactive'}
                         </td>
