@@ -1,0 +1,22 @@
+# Stale QA artifacts in root (not active QA work)
+qa_*.png
+qa_*.py
+qa_*.txt
+debug_*.py
+simple_qa_*.py
+
+# Large data files
+*.csv
+*.pdf
+*.zip
+*.log
+
+# Large n8n JSON exports
+Framed/*.json
+anime-live.json
+comment.txt
+
+# Docs
+docs/
+
+# NOTE: qa/screenshots/ is NOT ignored - QA can read active screenshots there

@@ -1,0 +1,36 @@
+FRA-96 QA Results
+============================================================
+
+[PASS] No hidden elements without JS (opacity:0 guard)
+[PASS] js-enabled class absent when JS disabled
+[PASS] js-enabled class present when JS active
+[PASS] All reveal elements become visible after scroll
+[PASS] Mobile: all elements visible after scroll
+
+Result: 5/5 checks passed
+OVERALL: PASS
+
+Details:
+{
+  "test1_js_class_without_js": true,
+  "test1_no_hidden_elements": true,
+  "test1_total_reveal": 18,
+  "test2_js_enabled": true,
+  "test2_in_viewport_visible": {
+    "visibleInViewport": 0,
+    "hiddenInViewport": 0
+  },
+  "test3_visible_after_scroll": 18,
+  "test3_total": 18,
+  "test3_still_hidden": [],
+  "test3_all_visible": true,
+  "test4_mobile_visible_after_scroll": true,
+  "console_errors": [
+    "[error] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.",
+    "[warning] Ignoring Event: localhost",
+    "[warning] Ignoring Event: localhost",
+    "[warning] Ignoring Event: localhost",
+    "[warning] Ignoring Event: localhost",
+    "[warning] Ignoring Event: localhost"
+  ]
+}

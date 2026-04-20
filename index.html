@@ -148,11 +148,25 @@
     .hero-bg {
       position: absolute;
       inset: 0;
-      background-image: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=85&fit=crop');
+      /* Optimized image delivery with modern formats
+         TODO: Replace with optimized image CDN (Cloudinary/Imgix) to generate:
+         - WebP format (.webp)
+         - AVIF format (.avif)  
+         - Responsive sizes (1920w, 1440w, 768w)
+         For production, use: background-image: image-set(
+           url('hero-1920.avif') type('image/avif') 1x,
+           url('hero-1920.webp') type('image/webp') 1x,
+           url('hero-1920.jpg') type('image/jpeg') 1x
+         );
+      */
+      background-image: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=85&fit=crop&fm=auto&auto=format');
       background-size: cover;
       background-position: center;
+      background-attachment: fixed;
       transform: scale(1.04);
       transition: transform 8s ease;
+      /* Reserve space to prevent layout shift (CLS) */
+      aspect-ratio: 16 / 9;
     }
     .hero-bg.loaded { transform: scale(1); }
     .hero-overlay {
@@ -224,6 +238,18 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       animation: bounce 2s infinite;
+      /* Touch target: ensure 44×44px minimum hit area */
+      padding: 12px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: color var(--transition);
+    }
+    .hero-scroll:hover {
+      color: rgba(255,255,255,0.6);
+    }
+    .hero-scroll:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
     .hero-scroll svg { opacity: 0.5; }
     @keyframes bounce {
@@ -668,6 +694,25 @@
       .trust-items { flex-direction: column; }
       footer { flex-direction: column; align-items: center; text-align: center; }
     }
+
+    /* ── Focus States (Accessibility - WCAG 2.4.7) ────────── */
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Remove default focus outline when not using keyboard */
+    :focus { outline: none; }
+
+    /* ── Loading States ────────────────────────────────────── */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -727,19 +772,34 @@
       <div class="steps-grid">
         <div class="step reveal reveal-delay-1">
           <div class="step-num">Step 01</div>
-          <div class="step-icon">📲</div>
+          <div class="step-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 2H7a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V5a3 3 0 0 0-3-3z"/>
+              <path d="M9 17h6"/>
+            </svg>
+          </div>
           <h3>Subscribe</h3>
           <p>Tap the Telegram button. Join the channel in one click — no account, no email, no hassle.</p>
         </div>
         <div class="step reveal reveal-delay-2">
           <div class="step-num">Step 02</div>
-          <div class="step-icon">🌅</div>
+          <div class="step-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+              <path d="M12 6v6l4 2.4"/>
+            </svg>
+          </div>
           <h3>Wake up</h3>
           <p>Every morning, a new cinematic wallpaper drops in your chat — chosen for its story and impact.</p>
         </div>
         <div class="step reveal reveal-delay-3">
           <div class="step-num">Step 03</div>
-          <div class="step-icon">✨</div>
+          <div class="step-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+              <path d="M9 12.5l2 2 4-4"/>
+            </svg>
+          </div>
           <h3>Set it</h3>
           <p>Save the image and set it as your wallpaper. Your screen tells a new story every single day.</p>
         </div>
@@ -757,27 +817,27 @@
       </div>
       <div class="gallery-grid">
         <div class="gallery-card reveal reveal-delay-1">
-          <img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&q=80&fit=crop" alt="Anime-inspired cinematic wallpaper preview" loading="lazy" />
+          <img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&q=80&fit=crop&fm=auto" alt="Attack on Titan Episode 87: Anime screenshot showing characters in dramatic combat silhouetted against a golden sky" loading="lazy" decoding="async" />
           <div class="gallery-caption"><span class="gallery-tag">Anime</span> Attack on Titan · Ep. 87</div>
         </div>
         <div class="gallery-card reveal reveal-delay-2">
-          <img src="https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=800&q=80&fit=crop" alt="Space wallpaper preview" loading="lazy" />
+          <img src="https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=800&q=80&fit=crop&fm=auto" alt="Space wallpaper: colorful nebula clouds in shades of purple, pink, and blue expanding through the cosmos" loading="lazy" decoding="async" />
           <div class="gallery-caption"><span class="gallery-tag">Space</span> Nebula Series · No. 12</div>
         </div>
         <div class="gallery-card reveal reveal-delay-3">
-          <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80&fit=crop" alt="Anime wallpaper preview" loading="lazy" />
+          <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80&fit=crop&fm=auto" alt="Frieren anime wallpaper: ethereal characters standing in a magical forest landscape bathed in warm light" loading="lazy" decoding="async" />
           <div class="gallery-caption"><span class="gallery-tag">Anime</span> Frieren · Ep. 28</div>
         </div>
         <div class="gallery-card reveal reveal-delay-1">
-          <img src="https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800&q=80&fit=crop" alt="Cosmic wallpaper preview" loading="lazy" />
+          <img src="https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800&q=80&fit=crop&fm=auto" alt="Cosmos Series space wallpaper: distant stars and galaxies against the vast expanse of the universe" loading="lazy" decoding="async" />
           <div class="gallery-caption"><span class="gallery-tag">Space</span> Cosmos Series · No. 4</div>
         </div>
         <div class="gallery-card reveal reveal-delay-2">
-          <img src="https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=800&q=80&fit=crop" alt="Action wallpaper preview" loading="lazy" />
+          <img src="https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=800&q=80&fit=crop&fm=auto" alt="Demon Slayer anime wallpaper: intense action scene with glowing effects and dramatic character poses" loading="lazy" decoding="async" />
           <div class="gallery-caption"><span class="gallery-tag">Anime</span> Demon Slayer · Ep. 19</div>
         </div>
         <div class="gallery-card reveal reveal-delay-3">
-          <img src="https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=800&q=80&fit=crop" alt="Landscape wallpaper preview" loading="lazy" />
+          <img src="https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=800&q=80&fit=crop&fm=auto" alt="Epic Vistas landscape wallpaper: sweeping mountain ranges with dramatic lighting and atmospheric perspective" loading="lazy" decoding="async" />
           <div class="gallery-caption"><span class="gallery-tag">Landscape</span> Epic Vistas · No. 7</div>
         </div>
       </div>
@@ -795,7 +855,7 @@
     </div>
     <div class="marquee-wrapper" style="margin-top:48px;">
       <div class="marquee-track" id="marquee">
-        <div class="cat-pill active">✦ Anime</div>
+        <div class="cat-pill active"><span class="cat-icon">✦</span> Anime</div>
         <div class="cat-pill">Space</div>
         <div class="cat-pill">Cars</div>
         <div class="cat-pill">Nature</div>
@@ -806,7 +866,7 @@
         <div class="cat-pill">Fantasy Art</div>
         <div class="cat-pill">Dark Academia</div>
         <!-- duplicate for seamless loop -->
-        <div class="cat-pill active">✦ Anime</div>
+        <div class="cat-pill active"><span class="cat-icon">✦</span> Anime</div>
         <div class="cat-pill">Space</div>
         <div class="cat-pill">Cars</div>
         <div class="cat-pill">Nature</div>
@@ -880,7 +940,14 @@
       <!-- Bundles callout -->
       <div class="bundle-callout reveal">
         <div class="bundle-left">
-          <div class="bundle-icon">📦</div>
+          <div class="bundle-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line>
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </div>
           <div class="bundle-text">
             <strong>Wallpaper Packs</strong>
             <span>Themed collections — "Fall 2025 Anime Season", "Classic Shonen" and more. Buy once, keep forever.</span>
@@ -939,14 +1006,16 @@
       <div class="modal-step">
         <div class="modal-step-num">2</div>
         <div style="width:100%">
-          <div class="modal-step-label">Enter it below</div>
+          <label for="chatIdInput" class="modal-step-label">Enter it below</label>
           <input
             type="text"
             id="chatIdInput"
             class="modal-input"
             placeholder="e.g. 123456789"
+            aria-describedby="chatIdHelper chatIdError"
             inputmode="numeric"
           />
+          <div id="chatIdHelper" class="modal-step-desc" style="margin-top:6px;">Your numeric ID from @userinfobot</div>
           <div id="chatIdError" class="modal-error" style="display:none">Please enter your numeric Telegram Chat ID (5–15 digits).</div>
         </div>
       </div>

@@ -1,0 +1,12 @@
+## QA Agent Configuration Complete
+
+Per the CEO update on [FRA-74](/FRA/issues/FRA-74):
+
+- ✅ Model set to claude-sonnet-4
+- ✅ Runtime: wakeOnDemand: true, maxConcurrentRuns: 1
+- ✅ Skills synced: webapp-testing, gent-browser, core, dogfood, paperclip, para-memory-files
+- ⚠️ Instructions path: requires board action (board-only permission) — agent can still operate with skills
+
+The QA agent (4836949-540a-4eb8-9f07-91b557fb8fda) is now operational and ready for active testing assignments.
+
+Next steps: QA can be delegated via [FRA-73](/FRA/issues/FRA-73) for active end-to-end testing of Framed workflows.

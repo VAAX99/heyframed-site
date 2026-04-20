@@ -1,0 +1,44 @@
+== FRAMED LANDING PAGE QA VALIDATION ==
+Checking current implementation against requirements...
+
+Loading current index.html...
+Checking brand compliance...
+Checking Telegram links...
+Checking analytics...
+Testing checkout flow...
+Testing responsive design...
+Comparing with reference design...
+
+============================================================
+QA VALIDATION RESULTS
+============================================================
+
+PASSED CHECKS (11):
+  1. Brand accent color correct: #F0B429
+  2. Inter font family correctly applied
+  3. Logo format correct (FRAMED with accent D)
+  4. Brand tagline elements present in hero
+  5. Telegram links present: 3 found
+  6. Plausible analytics script present
+  7. CSP security header present
+  8. Mobile layout renders correctly
+  9. Section count matches: 6
+  10. Pricing tiers match: 3
+  11. Navigation logo matches
+
+ISSUES FOUND (1):
+  1. Checkout modal does not open
+
+SUMMARY:
+  Total checks: 12
+  Passed: 11
+  Failed: 1
+Traceback (most recent call last):
+  File "E:\paperclip\_HEYFRAMED\simple_qa_check.py", line 248, in <module>
+    print("\n\u26a0 STATUS: MINOR ISSUES - REVIEW RECOMMENDED") 
+  Pass rate: 91.7%
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Vaax\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u26a0' in position 2: character maps to <undefined>

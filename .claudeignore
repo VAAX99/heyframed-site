@@ -1,0 +1,25 @@
+# Stale QA artifacts dumped in root (old runs - not active QA work)
+# QA active screenshots should live in qa/screenshots/ and are NOT ignored
+qa_*.png
+qa_*.py
+qa_*.txt
+debug_*.py
+simple_qa_*.py
+
+# Large data/binary files that are never useful as context
+*.csv
+*.pdf
+*.zip
+*.log
+
+# Large JSON exports (n8n workflow exports - too big for context, read the .md files instead)
+Framed/*.json
+
+# Temp files
+comment.txt
+anime-live.json
+
+# Docs folder (large reference dump)
+docs/
+
+# NOTE: *.png is NOT globally ignored - QA screenshots in qa/screenshots/ are readable

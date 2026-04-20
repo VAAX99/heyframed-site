@@ -1,0 +1,16 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+    }
+  ],
+  "name": "Temporary Manual Trigger Test",
+  "id": "temp-manual-trigger-test",
+  "active": false,
+  "settings": {},
+  "connections": {}
+}

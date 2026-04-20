@@ -41,7 +41,7 @@
       },
       "id": "1bac8c92-5473-409a-81c6-8cf3caa9725b",
       "name": "Prepare Date Variables",
-      "type": "n8n-nodes-base.code",
+      "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 2,
       "position": [
         544,
@@ -78,8 +78,8 @@
       },
       "id": "014bdfa3-0288-4809-8987-912c0e4f4d2d",
       "name": "AniList — Today's Anniversaries",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         768,
         992
@@ -105,8 +105,8 @@
       },
       "id": "cd341d8f-e597-4e34-a348-8b18dba2e496",
       "name": "AniList — Current Trending",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         768,
         1760
@@ -146,7 +146,7 @@
       "id": "fd8f0c3a-2605-408d-899d-31be4cf7c778",
       "name": "AniList — Check News Popularity",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 2,
       "position": [
         320,
         -576
@@ -177,7 +177,7 @@
       "id": "56d40940-be31-4afa-ac4b-b894561b4e9b",
       "name": "Cloudinary — Upload Image",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 2,
       "position": [
         3680,
         1280
@@ -192,7 +192,7 @@
       "id": "86ad5d45-ae0f-45e6-a738-b639c0c572af",
       "name": "Cloudinary — Detect Focal Point",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 2,
       "position": [
         3904,
         896
@@ -249,10 +249,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const story = $('Extract TMDB Image').first().json;\nconst uploadResult = $('Cloudinary — Upload Image').first().json;\nconst publicId = uploadResult.public_id;\nconst caption = $('Sanitize Caption').first().json.caption || '';\nconst episodeList = story.episodeList;\nconst gravity = $('Calculate Text Corner').first().json.bannerbearGravity || 'SouthEast';\nconst xOffset = $('Calculate Text Corner').first().json.xOffset || 48;\nconst yOffset = $('Calculate Text Corner').first().json.yOffset || 48;\n\nconst activeSizes = $('Fetch Active Sizes').all()\n  .map(item => item.json)\n  .filter(row => row.active === 'active');\n\nfunction cloudinaryUrl(width, height) {\n  return `https://res.cloudinary.com/ddlmwfeup/image/upload/w_${width},h_${height},c_fill,g_auto,e_sharpen:150,e_improve,q_95,f_jpg/${publicId}.jpg`;\n}\n\nconst results = [];\n\nfor (const size of activeSizes) {\n  results.push({\n    json: {\n      templateId: size.templateId,\n      sizeName: size.sizeName,\n      variant: 'tagged',\n      width: parseInt(size.width),\n      height: parseInt(size.height),\n      imageUrl: cloudinaryUrl(parseInt(size.width), parseInt(size.height)),\n      caption,\n      episodeList,\n      gravity,\n      xOffset,\n      yOffset\n    }\n  });\n}\n\nreturn results;"
+        "jsCode": "const story = $('Extract TMDB Image').first().json;\nconst uploadResult = $('Cloudinary - Upload Image').first().json;\nconst publicId = uploadResult.public_id;\nconst caption = $('Sanitize Caption').first().json.caption || '';\nconst episodeList = story.episodeList;\nconst gravity = $('Calculate Text Corner').first().json.bannerbearGravity || 'SouthEast';\nconst xOffset = $('Calculate Text Corner').first().json.xOffset || 48;\nconst yOffset = $('Calculate Text Corner').first().json.yOffset || 48;\n\nconst activeSizes = $('Fetch Active Sizes').all()\n  .map(item => item.json)\n  .filter(row => row.active === 'active');\n\nfunction cloudinaryUrl(width, height) {\n  return `https://res.cloudinary.com/ddlmwfeup/image/upload/w_${width},h_${height},c_fill,g_auto,e_sharpen:150,e_improve,q_95,f_jpg/${publicId}.jpg`;\n}\n\nconst results = [];\n\nfor (const size of activeSizes) {\n  const width = parseInt(size.width, 10);\n  const height = parseInt(size.height, 10);\n  const templateName = size.template_name || size.templateName || size.sizeName;\n\n  results.push({\n    json: {\n      sizeName: size.sizeName,\n      template_name: templateName,\n      variant: 'tagged',\n      width,\n      height,\n      imageUrl: cloudinaryUrl(width, height),\n      caption,\n      episodeList,\n      gravity,\n      xOffset,\n      yOffset\n    }\n  });\n}\n\nreturn results;"
       },
       "id": "6e48b9d6-1238-4d14-b552-d9bae682ce12",
-      "name": "Build Bannerbear Payloads",
+      "name": "Build Wallpaper Payloads",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -262,37 +262,16 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://api.bannerbear.com/v2/images",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBearerAuth",
-        "sendBody": true,
-        "contentType": "=json",
-        "specifyBody": "json",
-        "bodyParameters": {
-          "parameters": [
-            {}
-          ]
-        },
-        "jsonBody": "={{ JSON.stringify({\"template\": $json.templateId, \"width\": $json.width, \"height\": $json.height, \"modifications\": $json.modifications}) }}",
-        "options": {}
+        "jsCode": "return $input.all();"
       },
       "id": "a7ce3c33-a12a-4038-81f1-28e9ac3d9af4",
-      "name": "Bannerbear — Render Image",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "name": "Pass Wallpaper Payloads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         5824,
         896
-      ],
-      "executeOnce": false,
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "3n8dDrOdLFuipy3R",
-          "name": "Bannerbear API"
-        }
-      },
-      "notes": "Replace YOUR_BANNERBEAR_API_KEY with your actual key"
+      ]
     },
     {
       "parameters": {
@@ -310,25 +289,17 @@
     },
     {
       "parameters": {
-        "url": "=https://api.bannerbear.com/v2/images/{{ $('Bannerbear — Render Image').item.json.uid }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBearerAuth",
-        "options": {}
+        "jsCode": "const input = $json;\n\nfunction escapeXml(value) {\n  return String(value)\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;')\n    .replace(/'/g, '&apos;');\n}\n\nfunction wrapLines(text, maxChars) {\n  const words = String(text || '').split(/\\s+/).filter(Boolean);\n  const lines = [];\n  let current = '';\n\n  for (const word of words) {\n    const candidate = current ? `${current} ${word}` : word;\n    if (candidate.length <= maxChars) {\n      current = candidate;\n    } else {\n      if (current) lines.push(current);\n      current = word;\n    }\n  }\n\n  if (current) lines.push(current);\n  return lines.length ? lines : [''];\n}\n\nfunction buildTextBlock(text, x, y, width, fontSize, lineHeight, color, anchor = 'middle') {\n  const maxChars = Math.max(12, Math.floor(width / (fontSize * 0.58)));\n  const lines = wrapLines(text, maxChars);\n  const startY = y - ((lines.length - 1) * lineHeight) / 2;\n  const textAnchor = anchor === 'start' ? 'start' : anchor === 'end' ? 'end' : 'middle';\n  const tspans = lines.map((line, index) => {\n    const dy = index === 0 ? 0 : lineHeight;\n    return `<tspan x=\\"${x}\\" dy=\\"${dy}\\">${escapeXml(line)}</tspan>`;\n  }).join('');\n  return `<text x=\\"${x}\\" y=\\"${startY}\\" fill=\\"${color}\\" font-family=\\"Inter, Arial, sans-serif\\" font-size=\\"${fontSize}\\" font-weight=\\"700\\" text-anchor=\\"${textAnchor}\\" dominant-baseline=\\"middle\\">${tspans}</text>`;\n}\n\nconst caption = input.caption || '';\nconst episodeList = input.episodeList || '';\nconst bandHeight = Math.max(220, Math.round(input.height * 0.26));\nconst bandY = input.height - bandHeight;\nconst titleSize = Math.max(48, Math.round(Math.min(input.width, input.height) * 0.056));\nconst listSize = Math.max(26, Math.round(Math.min(input.width, input.height) * 0.03));\nconst titleLines = wrapLines(caption, Math.max(16, Math.floor(input.width / (titleSize * 0.48))));\nconst titleBlockHeight = titleLines.length * Math.round(titleSize * 1.08);\nconst titleY = bandY + 64 + titleBlockHeight / 2;\nconst listY = titleY + titleBlockHeight / 2 + 58;\n\nconst svg = `<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\n<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"${input.width}\\" height=\\"${input.height}\\" viewBox=\\"0 0 ${input.width} ${input.height}\\">\n  <defs>\n    <linearGradient id=\\"overlay\\" x1=\\"0\\" y1=\\"0\\" x2=\\"0\\" y2=\\"1\\">\n      <stop offset=\\"0%\\" stop-color=\\"rgba(0,0,0,0)\\"/>\n      <stop offset=\\"62%\\" stop-color=\\"rgba(0,0,0,0.12)\\"/>\n      <stop offset=\\"100%\\" stop-color=\\"rgba(0,0,0,0.72)\\"/>\n    </linearGradient>\n  </defs>\n  <image href=\\"${escapeXml(input.imageUrl)}\\" x=\\"0\\" y=\\"0\\" width=\\"${input.width}\\" height=\\"${input.height}\\" preserveAspectRatio=\\"xMidYMid slice\\"/>\n  <rect x=\\"0\\" y=\\"0\\" width=\\"${input.width}\\" height=\\"${input.height}\\" fill=\\"url(#overlay)\\"/>\n  <rect x=\\"${Math.round(input.width * 0.04)}\\" y=\\"${bandY + 28}\\" width=\\"${Math.round(input.width * 0.18)}\\" height=\\"8\\" rx=\\"4\\" fill=\\"rgba(255,255,255,0.9)\\"/>\n  ${buildTextBlock(caption, Math.round(input.width / 2), titleY, Math.round(input.width * 0.84), titleSize, Math.round(titleSize * 1.1), '#FFFFFF')}\n  ${buildTextBlock(episodeList, Math.round(input.width / 2), listY, Math.round(input.width * 0.78), listSize, Math.round(listSize * 1.2), 'rgba(255,255,255,0.88)')}\n</svg>`;\n\nconst image_url = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;\n\nreturn [{ json: { ...input, svg, image_url } }];"
       },
       "id": "544e2896-effe-4a8b-8209-9c6355b63296",
-      "name": "Bannerbear — Fetch Result",
-      "type": "n8n-nodes-base.httpRequest",
+      "name": "Prepare Sharp Result",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 4.1,
       "position": [
         6272,
         896
       ],
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "3n8dDrOdLFuipy3R",
-          "name": "Bannerbear API"
-        }
-      }
+      "credentials": {}
     },
     {
       "parameters": {
@@ -366,7 +337,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const input = $json;\n\nconst modifications = [\n  { name: \"background_image\", image_url: input.imageUrl },\n  { name: \"caption_text\", text: input.caption },\n  { name: \"episode_list\", text: input.episodeList },\n  { name: \"caption_box\", anchor: input.gravity, x_offset: input.xOffset, y_offset: input.yOffset }\n];\n\nreturn {\n  templateId: input.templateId,\n  sizeName: input.sizeName,\n  width: input.width,\n  height: input.height,\n  imageUrl: input.imageUrl,\n  caption: input.caption,\n  episodeList: input.episodeList,\n  gravity: input.gravity,\n  xOffset: input.xOffset,\n  yOffset: input.yOffset,\n  modifications: modifications\n};"
+        "jsCode": "const input = $json;\n\nreturn {\n  sizeName: input.sizeName,\n  template_name: input.template_name || input.sizeName,\n  width: input.width,\n  height: input.height,\n  imageUrl: input.imageUrl,\n  caption: input.caption,\n  episodeList: input.episodeList,\n  gravity: input.gravity,\n  xOffset: input.xOffset,\n  yOffset: input.yOffset\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -375,7 +346,7 @@
         896
       ],
       "id": "3ed73bba-9bde-45e3-9239-940e6d97e1c6",
-      "name": "Build Bannerbear Request"
+      "name": "Normalize Wallpaper Payload"
     },
     {
       "parameters": {},
@@ -1168,7 +1139,8 @@
       "parameters": {
         "operation": "sendPhoto",
         "chatId": "=@framed_daily",
-        "file": "={{ $('Bannerbear — Fetch Result').item.json.image_url }}",
+        "binaryData": true,
+        "binaryPropertyName": "data",
         "additionalFields": {
           "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
         }
@@ -1195,7 +1167,8 @@
       "parameters": {
         "operation": "sendPhoto",
         "chatId": "=-1003626842953",
-        "file": "={{ $('Bannerbear — Fetch Result').item.json.image_url }}",
+        "binaryData": true,
+        "binaryPropertyName": "data",
         "additionalFields": {
           "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
         }
@@ -1221,7 +1194,8 @@
       "parameters": {
         "operation": "sendPhoto",
         "chatId": "=-1003760553558",
-        "file": "={{ $('Bannerbear — Fetch Result').item.json.image_url }}",
+        "binaryData": true,
+        "binaryPropertyName": "data",
         "additionalFields": {
           "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
         }
@@ -1247,7 +1221,8 @@
       "parameters": {
         "operation": "sendPhoto",
         "chatId": "=-1003740399296",
-        "file": "={{ $('Bannerbear — Fetch Result').item.json.image_url }}",
+        "binaryData": true,
+        "binaryPropertyName": "data",
         "additionalFields": {
           "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n📺 This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n🖼 Free wallpaper — right click → save!\n📲 Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
         }
@@ -1795,7 +1770,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const subscribers = $input.all().map(item => item.json);\nconst imageUrl = $('Bannerbear — Fetch Result').first().json.image_url;\nconst headline = $('Resolve Final Story').first().json.headlineForCaption;\nconst episodeList = $('Resolve Final Story').first().json.episodeList;\n\nfunction normalize(value) {\n  return String(value ?? '').trim().toLowerCase();\n}\n\nfunction isTruthy(value) {\n  return ['true', '1', 'yes', 'y', 'active'].includes(normalize(value));\n}\n\nconst eligible = subscribers.filter(row => {\n  const state = normalize(row.subscription_state);\n  const category = normalize(row.category);\n  const tier = normalize(row.tier);\n  const active = isTruthy(row.active);\n\n  return active && state === 'active' && (category === 'anime' || category === 'all') && tier !== 'free';\n});\n\nreturn eligible.map(subscriber => {\n  const tier = normalize(subscriber.tier);\n  return {\n    json: {\n      chat_id: subscriber.chat_id,\n      tier: subscriber.tier,\n      category: subscriber.category,\n      resolution_mode: tier === 'framed+' ? 'all_sizes' : 'fhd_4k',\n      image_url: imageUrl,\n      caption: `${headline}\\n\\n📺 This week's episodes:\\n${episodeList}\\n\\n🖼 Your daily wallpaper — tap & hold to save!\\n\\nThanks for subscribing to Framed 🎌`\n    }\n  };\n});"
+        "jsCode": "const subscribers = $input.all().map(item => item.json);\nconst imageUrl = $('Prepare Sharp Result').first().json.image_url;\nconst headline = $('Resolve Final Story').first().json.headlineForCaption;\nconst episodeList = $('Resolve Final Story').first().json.episodeList;\n\nfunction normalize(value) {\n  return String(value ?? '').trim().toLowerCase();\n}\n\nfunction isTruthy(value) {\n  return ['true', '1', 'yes', 'y', 'active'].includes(normalize(value));\n}\n\nconst eligible = subscribers.filter(row => {\n  const state = normalize(row.subscription_state);\n  const category = normalize(row.category);\n  const tier = normalize(row.tier);\n  const active = isTruthy(row.active);\n  const isPaidTier = tier && tier !== 'free';\n\n  return active && state === 'active' && (category === 'space' || category === 'all') && isPaidTier;\n});\n\nreturn eligible.map(subscriber => {\n  const tier = normalize(subscriber.tier);\n  return {\n    json: {\n      chat_id: subscriber.chat_id,\n      tier: subscriber.tier,\n      category: subscriber.category,\n      resolution_mode: tier === 'framed+' ? 'all_sizes' : 'fhd_4k',\n      image_url: imageUrl,\n      caption: `${headline}\\n\\n📺 This week's episodes:\\n${episodeList}\\n\\n🖼 Your daily wallpaper — tap & hold to save!\\n\\nThanks for subscribing to Framed 🎌`\n    }\n  };\n});"
       },
       "id": "dm-002-build-dm-payloads",
       "name": "Build DM Payloads",
@@ -1810,7 +1785,8 @@
       "parameters": {
         "operation": "sendPhoto",
         "chatId": "={{ $json.chat_id }}",
-        "file": "={{ $json.image_url }}",
+        "binaryData": true,
+        "binaryPropertyName": "data",
         "additionalFields": {
           "caption": "={{ $json.caption }}"
         }
@@ -1834,7 +1810,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all().map(item => item.json);\n\nfunction normalize(value) {\n  return String(value ?? '').trim().toLowerCase();\n}\n\nreturn items.map(item => {\n  const errorText = String(item.error?.message ?? item.error ?? '').trim();\n  const isChatNotFound = /chat_not_found/i.test(errorText);\n\n  return {\n    json: {\n      sent_at: new Date().toISOString(),\n      chat_id: item.chat_id || '',\n      tier: item.tier || '',\n      category: item.category || '',\n      resolution_mode: item.resolution_mode || '',\n      status: errorText ? 'failed' : 'success',\n      error: errorText,\n      inactive: isChatNotFound ? 'true' : 'false',\n      subscriber_active: isChatNotFound ? 'false' : ''\n    }\n  };\n});"
+        "jsCode": "const items = $input.all().map(item => item.json);\n\nreturn items.map(item => {\n  const errorText = String(item.error?.message ?? item.error ?? '').trim();\n  const normalizedError = errorText.toLowerCase();\n  const isChatNotFound = normalizedError.includes('chat_not_found') || normalizedError.includes('chat not found');\n\n  return {\n    json: {\n      sent_at: new Date().toISOString(),\n      chat_id: item.chat_id || '',\n      tier: item.tier || '',\n      category: item.category || '',\n      resolution_mode: item.resolution_mode || '',\n      status: errorText ? 'failed' : 'delivered',\n      error: errorText,\n      inactive: isChatNotFound ? 'true' : 'false',\n      subscriber_active: isChatNotFound ? 'false' : ''\n    }\n  };\n});"
       },
       "id": "dm-004-build-delivery-log",
       "name": "Build Delivery Log Rows",
@@ -1876,7 +1852,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all().map(item => item.json);\n\nreturn items.map(item => ({\n  json: {\n    chat_id: item.chat_id || '',\n    active: item.subscriber_active || '',\n    inactive_reason: item.inactive === 'true' ? 'telegram_chat_not_found' : '',\n    updated_at: new Date().toISOString()\n  }\n}));"
+        "jsCode": "const items = $input.all().map(item => item.json);\n\nreturn items.filter(item => item.inactive === 'true').map(item => ({\n  json: {\n    chat_id: item.chat_id || '',\n    active: item.subscriber_active || '',\n    inactive_reason: 'telegram_chat_not_found',\n    updated_at: new Date().toISOString()\n  }\n}));"
       },
       "id": "dm-006-build-inactive-updates",
       "name": "Build Inactive Subscriber Updates",
@@ -2127,29 +2103,29 @@
         ]
       ]
     },
-    "Build Bannerbear Payloads": {
+    "Build Wallpaper Payloads": {
       "main": [
         [
           {
-            "node": "Build Bannerbear Request",
+            "node": "Pass Wallpaper Payloads",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Bannerbear — Render Image": {
+    "Pass Wallpaper Payloads": {
       "main": [
         [
           {
-            "node": "Wait 15 Seconds",
+            "node": "Normalize Wallpaper Payload",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Bannerbear — Fetch Result": {
+    "Prepare Sharp Result": {
       "main": [
         [
           {
@@ -2182,11 +2158,11 @@
         ]
       ]
     },
-    "Build Bannerbear Request": {
+    "Normalize Wallpaper Payload": {
       "main": [
         [
           {
-            "node": "Bannerbear — Render Image",
+            "node": "Prepare Sharp Result",
             "type": "main",
             "index": 0
           }
@@ -2471,7 +2447,7 @@
       "main": [
         [
           {
-            "node": "Build Bannerbear Payloads",
+            "node": "Build Wallpaper Payloads",
             "type": "main",
             "index": 0
           }
@@ -2553,17 +2529,6 @@
         [
           {
             "node": "Cloudinary — Upload Image",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait 15 Seconds": {
-      "main": [
-        [
-          {
-            "node": "Bannerbear — Fetch Result",
             "type": "main",
             "index": 0
           }

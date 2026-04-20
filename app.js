@@ -56,11 +56,28 @@ function proceedToCheckout() {
     return;
   }
 
+  // Show loading state on button
+  const btn = document.getElementById('btnProceedCheckout');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  btn.style.cursor = 'not-allowed';
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(240,180,41,0.3);border-top-color:#F0B429;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:8px;vertical-align:middle;"></span>Processing...';
+
   const url = base + '?client_reference_id=' + encodeURIComponent(raw);
   trackAnalytics('form-submit', { form: 'checkout-modal', tier: _currentTier, chat_id_length: raw.length });
   trackAnalytics('checkout-start', { tier: _currentTier, chat_id_length: raw.length, handoff: 'telegram_chat_id_to_stripe' });
-  closeCheckout();
-  window.open(url, '_blank');
+  
+  // Simulate a small delay before redirecting to show loading state
+  setTimeout(() => {
+    closeCheckout();
+    window.open(url, '_blank');
+    // Reset button state after modal closes
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.innerHTML = originalText;
+  }, 600);
 }
 
 function openPacksPreview() {
