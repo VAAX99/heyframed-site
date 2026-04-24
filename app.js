@@ -201,8 +201,12 @@ const observer = new IntersectionObserver((entries) => {
       observer.unobserve(e.target);
     }
   });
-}, { threshold: 0.12 });
+}, { threshold: 0, rootMargin: '0px 0px 80px 0px' });
 reveals.forEach(el => observer.observe(el));
+// Fallback: ensure nothing stays hidden if observer never fires
+setTimeout(() => {
+  document.querySelectorAll('.reveal:not(.visible)').forEach(el => el.classList.add('visible'));
+}, 2000);
 
 trackAnalytics('page-view', { path: window.location.pathname });
 
