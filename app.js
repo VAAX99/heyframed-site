@@ -216,6 +216,6 @@ document.addEventListener('click', (e) => {
   if (link) {
     e.preventDefault();
     trackAnalytics('telegram-join', { source: link.dataset.analyticsLabel || 'unknown' });
-    window.open('https://t.me/framed_wallpapers', '_blank', 'noopener,noreferrer');
+    window.open('https://t.me/Framed_Daily', '_blank', 'noopener,noreferrer');
   }
 });

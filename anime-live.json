@@ -3476,7 +3476,7 @@
       {
         "parameters": {
           "operation": "sendPhoto",
-          "chatId": "=@framed_daily",
+        "chatId": "=-1003626842953",
           "file": "={{ $('Bannerbear - Fetch Result').item.json.image_url }}",
           "additionalFields": {
             "caption": "={{ $('Resolve Final Story').first().json.headlineForCaption }}\n\n?? This week's episodes:\n{{ $('Resolve Final Story').first().json.episodeList }}\n\n?? Free wallpaper - right click \u001a save!\n?? Upgrade for all sizes: heyframed.com\n\n#anime #wallpaper #framed"
